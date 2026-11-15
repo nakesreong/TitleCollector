@@ -128,8 +128,6 @@ function addon:EvaluateTitleProgress(title, forceRefresh)
                 for i = 1, numCrit do
                     local okC, critString, critType, critCompleted, qty, reqQty, _, _, assetID, qtyString = pcall(GetAchievementCriteriaInfo, title.achID, i)
                     if okC then
-                        totalCount = totalCount + 1
-                        totalWeight = totalWeight + 1.0
                         local cText = (SafeNotSecret(critString) and critString and critString ~= "") and critString or nil
                         local subAchID = (critType == 8 and type(assetID) == "number" and assetID > 0) and assetID or nil
                         if not cText and subAchID then
@@ -138,41 +136,53 @@ function addon:EvaluateTitleProgress(title, forceRefresh)
                                 cText = subName
                             end
                         end
-                        cText = cText or ("Step #" .. tostring(i))
-
-                        local itemPct = 0
-                        local progressSuffix = nil
-                        if critCompleted or achCompleted or isCollected then
-                            critCompleted = true
-                            doneCount = doneCount + 1
-                            earnedWeight = earnedWeight + 1.0
-                            itemPct = 100.0
-                        elseif subAchID then
-                            local subFrac, subDone, subTot = EvaluateSubAchievementFraction(subAchID)
-                            earnedWeight = earnedWeight + subFrac
-                            itemPct = subFrac * 100.0
-                            if subTot > 1 then
-                                progressSuffix = string.format("[%d/%d]", subDone, subTot)
-                            end
-                        elseif type(qty) == "number" and type(reqQty) == "number" and reqQty > 1 then
-                            local frac = math.max(0, math.min(0.99, qty / reqQty))
-                            earnedWeight = earnedWeight + frac
-                            itemPct = frac * 100.0
-                            progressSuffix = string.format("(%d / %d)", qty, reqQty)
-                        elseif SafeNotSecret(qtyString) and type(qtyString) == "string" and qtyString ~= "" and qtyString ~= "0" then
-                            progressSuffix = "(" .. qtyString .. ")"
+                        -- Если у ачивки 1 скрытый критерий без текста, а у звания уже задана factionID, не дублируем пустой "Step #1"
+                        if not cText and numCrit == 1 and title.factionID and title.factionID > 0 then
+                            cText = nil
+                        elseif not cText and numCrit == 1 then
+                            cText = (SafeNotSecret(achName) and achName) or ("Step #" .. tostring(i))
+                        else
+                            cText = cText or ("Step #" .. tostring(i))
                         end
 
-                        table.insert(criteria, {
-                            index = i,
-                            text = progressSuffix and (cText .. " |cff88ccff" .. progressSuffix .. "|r") or cText,
-                            rawText = cText,
-                            completed = critCompleted == true,
-                            pct = itemPct,
-                            quantity = qty,
-                            reqQuantity = reqQty,
-                            subAchID = subAchID,
-                        })
+                        if cText then
+                            totalCount = totalCount + 1
+                            totalWeight = totalWeight + 1.0
+
+                            local itemPct = 0
+                            local progressSuffix = nil
+                            if critCompleted or achCompleted or isCollected then
+                                critCompleted = true
+                                doneCount = doneCount + 1
+                                earnedWeight = earnedWeight + 1.0
+                                itemPct = 100.0
+                            elseif subAchID then
+                                local subFrac, subDone, subTot = EvaluateSubAchievementFraction(subAchID)
+                                earnedWeight = earnedWeight + subFrac
+                                itemPct = subFrac * 100.0
+                                if subTot > 1 then
+                                    progressSuffix = string.format("[%d/%d]", subDone, subTot)
+                                end
+                            elseif type(qty) == "number" and type(reqQty) == "number" and reqQty > 1 then
+                                local frac = math.max(0, math.min(0.99, qty / reqQty))
+                                earnedWeight = earnedWeight + frac
+                                itemPct = frac * 100.0
+                                progressSuffix = string.format("(%d / %d)", qty, reqQty)
+                            elseif SafeNotSecret(qtyString) and type(qtyString) == "string" and qtyString ~= "" and qtyString ~= "0" then
+                                progressSuffix = "(" .. qtyString .. ")"
+                            end
+
+                            table.insert(criteria, {
+                                index = i,
+                                text = progressSuffix and (cText .. " |cff88ccff" .. progressSuffix .. "|r") or cText,
+                                rawText = cText,
+                                completed = critCompleted == true,
+                                pct = itemPct,
+                                quantity = qty,
+                                reqQuantity = reqQty,
+                                subAchID = subAchID,
+                            })
+                        end
                     end
                 end
             else

@@ -832,7 +832,7 @@ function addon:EnsureMainWindow()
     end)
     ui.sortBtn = sortBtn
 
-    local favFilterBtn = CreateCollectorButton(catCont, 96, 22, "★", false)
+    local favFilterBtn = CreateCollectorButton(catCont, 96, 22, self:L("FILTER_ONLY_FAV"), false)
     favFilterBtn:SetPoint("LEFT", sortBtn, "RIGHT", 6, 0)
     favFilterBtn:SetScript("OnClick", function(selfBtn)
         ui.onlyFavorites = not ui.onlyFavorites
@@ -1005,7 +1005,7 @@ function addon:EnsureMainWindow()
         clrBtn:SetPoint("RIGHT", r, "RIGHT", -6, 0)
         clrBtn:SetScript("OnClick", function() applyCallback(nil) end)
 
-        local favBtn = CreateCollectorButton(r, 64, 24, "★ Rnd", false)
+        local favBtn = CreateCollectorButton(r, 64, 24, addon:L("AUTO_BTN_ASSIGN_FAV_RND"), false)
         favBtn:SetPoint("RIGHT", clrBtn, "LEFT", -4, 0)
         favBtn:SetScript("OnClick", function() applyCallback("FAV") end)
 
@@ -1031,9 +1031,9 @@ function addon:EnsureMainWindow()
     end
 
     local ctxDefs = {
-        { key = "PVP",  icon = "Interface\\ICONS\\Achievement_BG_winWSG",                lblKey = "AUTO_CTX_PVP" },
-        { key = "RAID", icon = "Interface\\ICONS\\LFG_Eye_Green",                        lblKey = "AUTO_CTX_RAID" },
-        { key = "CITY", icon = "Interface\\ICONS\\INV_Misc_InnKey",                      lblKey = "AUTO_CTX_CITY" },
+        { key = "PVP",  icon = 236396, lblKey = "AUTO_CTX_PVP" },
+        { key = "RAID", icon = 133074, lblKey = "AUTO_CTX_RAID" },
+        { key = "CITY", icon = 134414, lblKey = "AUTO_CTX_CITY" },
     }
     for idx, cd in ipairs(ctxDefs) do
         CreateAutoRuleRow(autoPanel, -295 - (idx - 1) * 46, "CTX_" .. cd.key, cd.icon, self:L(cd.lblKey), function(val)
