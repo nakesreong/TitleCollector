@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 """
 TitleCollector — Database Pipeline (TitlesDB-1.0)
-Combines official Blizzard DB2 tables (CharTitles, Achievement, Faction, UiMap via Wago.tools)
-with community rarity/obtainability metadata and curated coordinates, reputations, and quest chains.
+Combines official Blizzard DB2 tables (CharTitles, Achievement, Achievement_Category, Faction, UiMap via Wago.tools)
+with real Data for Azeroth ownership rarity and metadata (`dfa_titles.json`, `dfa_titlesrarity.json`)
+plus curated coordinates, reputations, and quest chains.
 """
 
 import csv
-import io
+import json
 import os
 import re
 import sys
 import urllib.request
-import zipfile
 from datetime import datetime, timezone
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -24,47 +24,23 @@ WAGO_FILES = {
     "CharTitles_enUS.csv": "https://wago.tools/db2/CharTitles/csv?locale=enUS",
     "Achievement_ruRU.csv": "https://wago.tools/db2/Achievement/csv?locale=ruRU",
     "Achievement_enUS.csv": "https://wago.tools/db2/Achievement/csv?locale=enUS",
+    "Achievement_Category_enUS.csv": "https://wago.tools/db2/Achievement_Category/csv?locale=enUS",
     "Faction_ruRU.csv": "https://wago.tools/db2/Faction/csv?locale=ruRU",
     "Faction_enUS.csv": "https://wago.tools/db2/Faction/csv?locale=enUS",
     "UiMap_ruRU.csv": "https://wago.tools/db2/UiMap/csv?locale=ruRU",
     "UiMap_enUS.csv": "https://wago.tools/db2/UiMap/csv?locale=enUS",
 }
 
-EXP_MAP = {
-    "classic": 1,
-    "vanilla": 1,
-    "tbc": 2,
-    "bc": 2,
-    "wotlk": 3,
-    "wrath": 3,
-    "cata": 4,
-    "cataclysm": 4,
-    "mop": 5,
-    "pandaria": 5,
-    "wod": 6,
-    "draenor": 6,
-    "legion": 7,
-    "bfa": 8,
-    "sl": 9,
-    "shadowlands": 9,
-    "df": 10,
-    "dragonflight": 10,
-    "tww": 11,
-    "warwithin": 11,
-    "thewarwithin": 11,
-    "midnight": 12,
-}
-
 # Curated coordinates, reputations, quest chains, and zone mappings keyed by lowercase clean_en
 CURATED_BY_TITLE = {
     # Classic / World / Iconic Solo
     "jenkins": {
-        "achID": 2188, "mapID": 84, "x": 48.7, "y": 88.1, "difficulty": "SOLO_FAST",
+        "achID": 2188, "mapID": 36, "x": 28.4, "y": 84.6, "difficulty": "SOLO_FAST",
         "note_ru": "Убейте 50 дракончиков в Верхней части пика Черной горы за 15 секунд (делается соло за 2 минуты).",
         "note_en": "Kill 50 rookery whelps within 15 seconds in Upper Blackrock Spire (easy 2-minute solo).",
     },
     "the patient": {
-        "achID": 4477, "difficulty": "SOLO_FAST",
+        "achID": 4477, "noZone": True, "difficulty": "SOLO_FAST",
         "note_ru": "Пройдите случайные героические подземелья с 50 случайными игроками через Поиск группы.",
         "note_en": "Complete random heroic dungeons with 50 random players via Dungeon Finder.",
     },
@@ -180,103 +156,6 @@ CURATED_BY_TITLE = {
     },
 }
 
-
-def ensure_cache(force_fetch: bool = False):
-    os.makedirs(CACHE_DIR, exist_ok=True)
-    for fname, url in WAGO_FILES.items():
-        fpath = os.path.join(CACHE_DIR, fname)
-        if not force_fetch and os.path.exists(fpath) and os.path.getsize(fpath) > 500:
-            continue
-        print(f"[FETCH] Downloading {fname} from Wago.tools...")
-        req = urllib.request.Request(url, headers={"User-Agent": "TitleCollector-DBBuilder/1.0"})
-        with urllib.request.urlopen(req, timeout=60) as resp:
-            data = resp.read()
-        with open(fpath, "wb") as f:
-            f.write(data)
-
-
-def read_csv_file(fname: str):
-    fpath = os.path.join(CACHE_DIR, fname)
-    with open(fpath, "r", encoding="utf-8", errors="replace") as f:
-        return list(csv.DictReader(f))
-
-
-def parse_epithet_zip():
-    zip_path = os.path.join(CACHE_DIR, "Epithet-1.3.3-release.zip")
-    en_by_mask = {}
-    ru_by_mask = {}
-    if not os.path.exists(zip_path):
-        return en_by_mask, ru_by_mask
-
-    with zipfile.ZipFile(zip_path, "r") as z:
-        en_txt = z.read("Epithet/data/TitlesDB.enGB.lua").decode("utf-8", errors="replace")
-        ru_txt = z.read("Epithet/data/TitlesDB.ruRU.lua").decode("utf-8", errors="replace")
-
-    # Parse enGB blocks
-    block_re = re.compile(r'\["([^"]+)"\]\s*=\s*\{(.*?)\n\s*\},', re.DOTALL)
-    for m in block_re.finditer(en_txt):
-        body = m.group(2)
-        tid_m = re.search(r"titleID\s*=\s*(\d+)", body)
-        if not tid_m:
-            continue
-        mask_id = int(tid_m.group(1))
-        rec = {"maskID": mask_id}
-        for key in ("type", "exp", "cat", "kind", "obtainable", "availability", "faction", "obtainability_reason", "achievement", "quest", "source_item"):
-            km = re.search(rf'\b{key}\s*=\s*"((?:\\.|[^"\\])*)"', body)
-            if km:
-                rec[key] = km.group(1).replace('\\"', '"').replace("\\\\", "\\")
-        for nkey in ("q", "achievement_id", "quest_id"):
-            nm = re.search(rf"\b{nkey}\s*=\s*(\d+)", body)
-            if nm:
-                rec[nkey] = int(nm.group(1))
-        rm = re.search(r"\brarity\s*=\s*([0-9.]+)", body)
-        if rm:
-            rec["rarity"] = float(rm.group(1))
-        en_by_mask[mask_id] = rec
-
-    # Parse ruRU blocks
-    ru_block_re = re.compile(r"\[(\d+)\]\s*=\s*\{(.*?)\n\s*\},", re.DOTALL)
-    for m in ru_block_re.finditer(ru_txt):
-        mask_id = int(m.group(1))
-        body = m.group(2)
-        rec = {}
-        for key in ("obtainability_reason", "achievement", "quest", "source_item"):
-            km = re.search(rf'\b{key}\s*=\s*"((?:\\.|[^"\\])*)"', body)
-            if km:
-                rec[key] = km.group(1).replace('\\"', '"').replace("\\\\", "\\")
-        ru_by_mask[mask_id] = rec
-
-    return en_by_mask, ru_by_mask
-
-
-def parse_mount_dungeons_coords():
-    """Extracts instance/raid entrance coordinates from MountCollector/MountDungeonsDB.lua."""
-    by_name = {}
-    for k, (mid, cx, cy) in RAID_AND_ZONE_ENTRANCES.items():
-        by_name[k] = {"mapID": mid, "x": cx, "y": cy}
-    if not os.path.exists(MOUNT_DUNGEONS_PATH):
-        return by_name
-    with open(MOUNT_DUNGEONS_PATH, "r", encoding="utf-8", errors="replace") as f:
-        txt = f.read()
-    for block in re.findall(r"\{[^{}]*mapID\s*=\s*\d+[^{}]*\}", txt, re.DOTALL):
-        map_m = re.search(r"mapID\s*=\s*(\d+)", block)
-        x_m = re.search(r"\bx\s*=\s*([0-9.]+)", block)
-        y_m = re.search(r"\by\s*=\s*([0-9.]+)", block)
-        if not (map_m and x_m and y_m):
-            continue
-        coords = {
-            "mapID": int(map_m.group(1)),
-            "x": float(x_m.group(1)),
-            "y": float(y_m.group(1)),
-        }
-        for key in ("instanceRU", "instanceEN", "bossRU", "bossEN"):
-            sm = re.search(rf'{key}\s*=\s*"([^"]+)"', block)
-            if sm:
-                by_name[sm.group(1).strip().lower()] = coords
-                coords[key] = sm.group(1).strip()
-    return by_name
-
-
 RAID_AND_ZONE_ENTRANCES = {
     # Classic / TBC / WotLK
     "molten core": (36, 28.4, 84.6),
@@ -342,6 +221,84 @@ RAID_AND_ZONE_ENTRANCES = {
     "voidstorm": (2405, 50.0, 50.0),
 }
 
+COVENANT_LABELS_RU = {
+    "Kyrian Covenant": "Ковенант Кирий",
+    "Necrolords Covenant": "Ковенант Некролордов",
+    "Night Fae Covenant": "Ковенант Ночного Народа",
+    "Venthyr Covenant": "Ковенант Вентиров",
+}
+
+
+def ensure_cache(force_fetch: bool = False):
+    os.makedirs(CACHE_DIR, exist_ok=True)
+    for fname, url in WAGO_FILES.items():
+        fpath = os.path.join(CACHE_DIR, fname)
+        if not force_fetch and os.path.exists(fpath) and os.path.getsize(fpath) > 500:
+            continue
+        print(f"[FETCH] Downloading {fname} from Wago.tools...")
+        req = urllib.request.Request(url, headers={"User-Agent": "TitleCollector-DBBuilder/1.0"})
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            data = resp.read()
+        with open(fpath, "wb") as f:
+            f.write(data)
+
+
+def read_csv_file(fname: str):
+    fpath = os.path.join(CACHE_DIR, fname)
+    with open(fpath, "r", encoding="utf-8", errors="replace") as f:
+        return list(csv.DictReader(f))
+
+
+def load_dfa_data():
+    titles_path = os.path.join(CACHE_DIR, "dfa_titles.json")
+    rarity_path = os.path.join(CACHE_DIR, "dfa_titlesrarity.json")
+    dfa_by_mask = {}
+    rarity_by_mask = {}
+
+    if os.path.exists(titles_path):
+        with open(titles_path, "r", encoding="utf-8") as f:
+            raw_t = json.load(f).get("titles", [])
+            for item in raw_t:
+                mid = item.get("id")
+                if isinstance(mid, int):
+                    dfa_by_mask[mid] = item
+
+    if os.path.exists(rarity_path):
+        with open(rarity_path, "r", encoding="utf-8") as f:
+            raw_r = json.load(f).get("titles", {})
+            for k, v in raw_r.items():
+                if str(k).isdigit() and isinstance(v, (int, float)):
+                    rarity_by_mask[int(k)] = float(v)
+
+    return dfa_by_mask, rarity_by_mask
+
+
+def parse_mount_dungeons_coords():
+    """Extracts instance/raid entrance coordinates from MountCollector/MountDungeonsDB.lua."""
+    by_name = {}
+    for k, (mid, cx, cy) in RAID_AND_ZONE_ENTRANCES.items():
+        by_name[k] = {"mapID": mid, "x": cx, "y": cy}
+    if not os.path.exists(MOUNT_DUNGEONS_PATH):
+        return by_name
+    with open(MOUNT_DUNGEONS_PATH, "r", encoding="utf-8", errors="replace") as f:
+        txt = f.read()
+    for block in re.findall(r"\{[^{}]*mapID\s*=\s*\d+[^{}]*\}", txt, re.DOTALL):
+        map_m = re.search(r"mapID\s*=\s*(\d+)", block)
+        x_m = re.search(r"\bx\s*=\s*([0-9.]+)", block)
+        y_m = re.search(r"\by\s*=\s*([0-9.]+)", block)
+        if not (map_m and x_m and y_m):
+            continue
+        coords = {
+            "mapID": int(map_m.group(1)),
+            "x": float(x_m.group(1)),
+            "y": float(y_m.group(1)),
+        }
+        for key in ("instanceRU", "instanceEN", "bossRU", "bossEN"):
+            sm = re.search(rf'{key}\s*=\s*"([^"]+)"', block)
+            if sm:
+                by_name[sm.group(1).strip().lower()] = coords
+                coords[key] = sm.group(1).strip()
+    return by_name
 
 
 def clean_title_pattern(pat: str) -> str:
@@ -358,7 +315,6 @@ def is_prefix_pattern(pat: str) -> bool:
     idx = pat.find("%s")
     if idx < 0:
         return True
-    # If %s is at the end (e.g. "Private %s"), title comes before player name -> prefix
     return idx > len(pat) // 2
 
 
@@ -367,6 +323,66 @@ def lua_str(val) -> str:
         return "nil"
     s = str(val).replace("\\", "\\\\").replace('"', '\\"').replace("\r", "").replace("\n", "\\n")
     return f'"{s}"'
+
+
+def classify_achievement_category(ach_row_en, cat_by_id):
+    if not ach_row_en:
+        return "Achievement"
+    cid = int(ach_row_en.get("Category") or 0)
+    chain_names = []
+    root_id = cid
+    visited = set()
+    cur = cid
+    while cur in cat_by_id and cur not in visited:
+        visited.add(cur)
+        c_row = cat_by_id[cur]
+        chain_names.append((c_row.get("Name_lang") or "").lower())
+        parent = int(c_row.get("Parent") or -1)
+        if parent <= 0:
+            root_id = cur
+            break
+        cur = parent
+
+    joined = " | ".join(chain_names)
+    title_low = (ach_row_en.get("Title_lang") or "").lower()
+    desc_low = (ach_row_en.get("Description_lang") or "").lower()
+    blob = f"{title_low} {desc_low}"
+
+    if "raid" in joined:
+        return "Raid"
+    if "dungeon" in joined or root_id == 168:
+        return "Dungeon"
+    if root_id == 95 or "arena" in joined or "battleground" in joined:
+        return "PvP"
+    if root_id == 201:
+        return "Reputation"
+    if root_id == 96:
+        return "Quest"
+    if root_id == 97:
+        return "Exploration"
+    if root_id == 155 or "brawler" in joined or "darkmoon" in joined:
+        return "Holiday"
+    if root_id == 169:
+        return "Profession"
+    if root_id == 15522 or "delve" in joined:
+        return "Delves"
+    if root_id == 15117:
+        return "Pet Battles"
+    if root_id == 15301:
+        return "Campaign"
+
+    # Feats of Strength (81) or Legacy (15234): infer from description/title
+    if any(k in blob for k in ("gladiator", "arena", "rbg", "rated battleground", "solo shuffle", "battleground blitz", "rank 14", "marshal", "warlord", "pvp season")):
+        return "PvP"
+    if any(k in blob for k in ("mythic:", "heroic:", "cutting edge", "ahead of the curve", "hall of fame", "raid")):
+        return "Raid"
+    if any(k in blob for k in ("keystone", "mythic+", "challenge mode", "dungeon")):
+        return "Dungeon"
+    if any(k in blob for k in ("exalted", "renown", "reputation")):
+        return "Reputation"
+    if any(k in blob for k in ("delve", "zekvir", "underpin", "nemesis")):
+        return "Delves"
+    return "Achievement"
 
 
 def main():
@@ -378,39 +394,46 @@ def main():
 
     ach_ru = {int(r["ID"]): r for r in read_csv_file("Achievement_ruRU.csv") if r.get("ID", "").isdigit()}
     ach_en = {int(r["ID"]): r for r in read_csv_file("Achievement_enUS.csv") if r.get("ID", "").isdigit()}
+    cat_en = {int(r["ID"]): r for r in read_csv_file("Achievement_Category_enUS.csv") if r.get("ID", "").isdigit()}
 
     uimap_ru = {int(r["ID"]): r.get("Name_lang", "") for r in read_csv_file("UiMap_ruRU.csv") if r.get("ID", "").isdigit()}
     uimap_en = {int(r["ID"]): r.get("Name_lang", "") for r in read_csv_file("UiMap_enUS.csv") if r.get("ID", "").isdigit()}
 
+    faction_by_id_en = {}
+    faction_by_id_ru = {}
     faction_by_name = {}
     for r in read_csv_file("Faction_enUS.csv"):
         if r.get("ID", "").isdigit():
             fid = int(r["ID"])
-            fnm = (r.get("Name_lang") or "").strip().lower()
-            if fnm and len(fnm) >= 5 and fnm not in faction_by_name:
+            fnm_raw = (r.get("Name_lang") or "").strip()
+            faction_by_id_en[fid] = fnm_raw
+            fnm = fnm_raw.lower()
+            if fnm and len(fnm) >= 4 and fnm not in faction_by_name:
                 faction_by_name[fnm] = fid
-                if fnm.startswith("the ") and len(fnm) >= 9:
+                if fnm.startswith("the ") and len(fnm) >= 8:
                     faction_by_name[fnm[4:]] = fid
     for r in read_csv_file("Faction_ruRU.csv"):
         if r.get("ID", "").isdigit():
             fid = int(r["ID"])
-            fnm = (r.get("Name_lang") or "").strip().lower()
-            if fnm and len(fnm) >= 5 and fnm not in faction_by_name:
+            fnm_raw = (r.get("Name_lang") or "").strip()
+            faction_by_id_ru[fid] = fnm_raw
+            fnm = fnm_raw.lower()
+            if fnm and len(fnm) >= 4 and fnm not in faction_by_name:
                 faction_by_name[fnm] = fid
 
-    # Build zone name -> uiMapID lookup for open-world/zone matching
+    # Build zone name -> uiMapID lookup for open-world/zone matching (Type 3 = World Zone)
     zone_to_mapid = {}
     for r in read_csv_file("UiMap_enUS.csv"):
-        if r.get("ID", "").isdigit() and r.get("Type") in ("3", "2", "4"):
+        if r.get("ID", "").isdigit() and r.get("Type") == "3":
             mid = int(r["ID"])
             nm = r.get("Name_lang", "").strip().lower()
-            if nm and len(nm) >= 4 and nm not in zone_to_mapid:
+            if nm and len(nm) >= 5 and nm not in zone_to_mapid:
                 zone_to_mapid[nm] = mid
     for r in read_csv_file("UiMap_ruRU.csv"):
-        if r.get("ID", "").isdigit() and r.get("Type") in ("3", "2", "4"):
+        if r.get("ID", "").isdigit() and r.get("Type") == "3":
             mid = int(r["ID"])
             nm = r.get("Name_lang", "").strip().lower()
-            if nm and len(nm) >= 4 and nm not in zone_to_mapid:
+            if nm and len(nm) >= 5 and nm not in zone_to_mapid:
                 zone_to_mapid[nm] = mid
 
     # Build Achievement reward text -> achievement ID index
@@ -435,7 +458,7 @@ def main():
             if cleaned and len(cleaned) >= 3 and cleaned.lower() not in reward_to_ach_id:
                 reward_to_ach_id[cleaned.lower()] = aid
 
-    en_meta, ru_meta = parse_epithet_zip()
+    dfa_by_mask, rarity_by_mask = load_dfa_data()
     dungeon_coords = parse_mount_dungeons_coords()
 
     all_masks = sorted(set(char_en.keys()) | set(char_ru.keys()))
@@ -457,34 +480,74 @@ def main():
 
         clean_en = clean_title_pattern(name_m_en)
         clean_ru = clean_title_pattern(name_m_ru)
-        if not clean_en or clean_en.startswith("UNUSED") or "TEST" in clean_en.upper() or "PH " in clean_en.upper():
+        if not clean_en or clean_en.startswith("UNUSED") or "TEST" in clean_en.upper() or "[PH]" in clean_en.upper() or clean_en.upper().startswith("PH "):
             continue
 
-        meta_en = en_meta.get(mask_id, {})
-        meta_ru = ru_meta.get(mask_id, {})
-        curated = CURATED_BY_TITLE.get(clean_en.lower(), {})
+        dfa = dfa_by_mask.get(mask_id, {})
+        dfa_unob = dfa.get("unobtainable")
+        rarity_pct = rarity_by_mask.get(mask_id)
 
-        # Skip pure unreferenced test/duplicate IDs unless they are in meta_en or matched to an achievement
-        ach_id = curated.get("achID") or meta_en.get("achievement_id")
+        # Skip never-implemented / PH titles (unobtainable == 2) unless players actually own it in Armory
+        if dfa_unob == 2 and rarity_pct is None:
+            continue
+
+        curated = CURATED_BY_TITLE.get(clean_en.lower(), {})
+        sources = dfa.get("source") or []
+
+        # Extract achievement / quest / faction / currency from dfa sources
+        dfa_ach_id = None
+        dfa_quest_id = None
+        dfa_faction_name = None
+        dfa_standing_str = None
+        dfa_currency = None
+        dfa_drop_name = None
+        dfa_drop_zone = None
+        dfa_source_type = None
+
+        for s in sources:
+            stype = s.get("type")
+            if not dfa_source_type:
+                dfa_source_type = stype
+            if stype == "achievement" and isinstance(s.get("achievement"), int) and not dfa_ach_id:
+                dfa_ach_id = s["achievement"]
+            elif stype == "quest":
+                if isinstance(s.get("quest"), int) and not dfa_quest_id:
+                    dfa_quest_id = s["quest"]
+                elif s.get("name") and not dfa_drop_name:
+                    dfa_drop_name = s["name"]
+            elif stype == "faction":
+                dfa_faction_name = s.get("faction") or s.get("name")
+                dfa_standing_str = s.get("standing") or s.get("zone")
+            elif stype == "currency":
+                dfa_currency = s.get("currency") or s.get("name")
+            elif stype in ("drop", "vendor", "promotion", "other"):
+                dfa_drop_name = s.get("name")
+                dfa_drop_zone = s.get("zone")
+
+        ach_id = curated.get("achID") or dfa_ach_id
         if not ach_id:
             ach_id = reward_to_ach_id.get(clean_en.lower()) or reward_to_ach_id.get(clean_ru.lower())
 
-        # If neither in Epithet curated 694 titles nor has an achievement reward match nor curated, check if high ID (Midnight 12.x)
-        if not meta_en and not ach_id and not curated and db_id < 800:
+        # Skip pure unreferenced internal IDs that are not in Data for Azeroth and have no achievement
+        if not dfa and not ach_id and not curated:
             continue
 
         ach_row_en = ach_en.get(ach_id) if ach_id else None
         ach_row_ru = ach_ru.get(ach_id) if ach_id else None
 
-        exp_str = (meta_en.get("exp") or "").lower()
-        exp_num = EXP_MAP.get(exp_str)
+        # Determine Expansion (1..12) from dfa patch string (e.g. "12.0", "11.1.5", "3.3")
+        exp_num = None
+        patch_str = str(dfa.get("patch") or "")
+        pm = re.match(r"^(\d+)\.", patch_str)
+        if pm:
+            exp_num = int(pm.group(1))
         if not exp_num:
             if db_id >= 820 or (ach_id and ach_id >= 40000):
-                exp_num = 12 # Midnight
+                exp_num = 12
             elif db_id >= 770 or (ach_id and ach_id >= 19000):
-                exp_num = 11 # The War Within
+                exp_num = 11
             elif db_id >= 710 or (ach_id and ach_id >= 16000):
-                exp_num = 10 # Dragonflight
+                exp_num = 10
             elif db_id >= 640:
                 exp_num = 9
             elif db_id >= 530:
@@ -504,44 +567,57 @@ def main():
             else:
                 exp_num = 1
 
-        cat = curated.get("cat") or meta_en.get("cat") or "Achievement"
-        kind = meta_en.get("kind") or cat
-        obtainable_raw = meta_en.get("obtainable", "yes")
+        # Determine obtainability
         obtainable = curated.get("obtainable")
         if obtainable is None:
-            obtainable = obtainable_raw == "yes" and meta_en.get("availability") != "removed"
+            obtainable = dfa_unob not in (1, 2)
 
-        rarity_pct = curated.get("rarity") or meta_en.get("rarity")
-        rarity_tier = meta_en.get("q") or (5 if (rarity_pct and rarity_pct < 1.5) else 4 if (rarity_pct and rarity_pct < 5.0) else 3 if (rarity_pct and rarity_pct < 15.0) else 2)
+        # Determine Faction (1 = Alliance, 2 = Horde, 0 = Neutral)
+        dfa_fac = dfa.get("faction")
+        if dfa_fac == 0:
+            faction = 1
+        elif dfa_fac == 1:
+            faction = 2
+        else:
+            faction = 0
+            if ach_row_en:
+                afac = int(ach_row_en.get("Faction") or -1)
+                if afac == 1:
+                    faction = 1
+                elif afac == 0:
+                    faction = 2
 
-        faction_str = meta_en.get("faction") or ""
-        faction = 1 if faction_str == "Alliance" else 2 if faction_str == "Horde" else 0
-        if faction == 0 and ach_row_en:
-            afac = int(ach_row_en.get("Faction") or -1)
-            if afac == 1:
-                faction = 1
-            elif afac == 0:
-                faction = 2
-
-        ach_name_en = (ach_row_en and ach_row_en.get("Title_lang")) or meta_en.get("achievement") or ""
-        ach_name_ru = (ach_row_ru and ach_row_ru.get("Title_lang")) or meta_ru.get("achievement") or ach_name_en
-        ach_desc_en = (ach_row_en and ach_row_en.get("Description_lang")) or ""
-        ach_desc_ru = (ach_row_ru and ach_row_ru.get("Description_lang")) or ach_desc_en
-        icon_id = int(ach_row_en.get("IconFileID") or 0) if ach_row_en else 0
-
-        note_en = curated.get("note_en") or meta_en.get("obtainability_reason") or ach_desc_en or ""
-        note_ru = curated.get("note_ru") or meta_ru.get("obtainability_reason") or ach_desc_ru or note_en
-
-        quest_id = curated.get("questID") or meta_en.get("quest_id")
-        quest_name_en = meta_en.get("quest") or ""
-        quest_name_ru = meta_ru.get("quest") or quest_name_en
-
+        # Resolve Reputation / Faction ID and Renown / Standing
         faction_id = curated.get("factionID")
         req_standing = curated.get("reqStanding")
         req_renown = curated.get("reqRenown")
 
-        search_blob = f"{ach_name_en} {ach_desc_en} {note_en} {ach_name_ru} {ach_desc_ru}".lower()
-        if not faction_id and (cat == "Reputation" or kind == "Reputation" or "exalted" in search_blob or "renown" in search_blob or "превознесен" in search_blob or "известност" in search_blob):
+        grant_reps = dfa.get("grantreputations")
+        if not faction_id and isinstance(grant_reps, list) and len(grant_reps) > 0:
+            faction_id = int(grant_reps[0])
+
+        if not faction_id and dfa_faction_name:
+            fn_low = dfa_faction_name.strip().lower()
+            faction_id = faction_by_name.get(fn_low) or faction_by_name.get("the " + fn_low)
+
+        if dfa_standing_str:
+            rm = re.search(r"(?:renown|level)\s+(\d+)", dfa_standing_str, re.IGNORECASE)
+            if rm:
+                req_renown = int(rm.group(1))
+            elif faction_id and not req_standing:
+                req_standing = 8
+        elif faction_id and not req_renown and not req_standing:
+            req_standing = 8
+
+        ach_name_en = (ach_row_en and ach_row_en.get("Title_lang")) or ""
+        ach_name_ru = (ach_row_ru and ach_row_ru.get("Title_lang")) or ach_name_en
+        ach_desc_en = (ach_row_en and ach_row_en.get("Description_lang")) or ""
+        ach_desc_ru = (ach_row_ru and ach_row_ru.get("Description_lang")) or ach_desc_en
+        icon_id = int(ach_row_en.get("IconFileID") or 0) if ach_row_en else 0
+
+        # Also scan achievement description for reputation if not yet set
+        search_blob = f"{ach_name_en} {ach_desc_en} {ach_name_ru} {ach_desc_ru}".lower()
+        if not faction_id and ("exalted" in search_blob or "renown" in search_blob or "превознесен" in search_blob or "известност" in search_blob):
             for fname_low, fid in sorted(faction_by_name.items(), key=lambda kv: -len(kv[0])):
                 if fname_low in search_blob:
                     faction_id = fid
@@ -552,21 +628,100 @@ def main():
                         req_standing = 8
                     break
 
+        # Determine Category (`cat` / `kind`)
+        if curated.get("cat"):
+            cat = curated["cat"]
+        elif ach_row_en:
+            cat = classify_achievement_category(ach_row_en, cat_en)
+        elif dfa_source_type == "faction" or faction_id:
+            cat = "Reputation"
+        elif dfa_source_type == "currency":
+            cat = "Holiday"
+        elif dfa_source_type == "quest":
+            cat = "Campaign" if exp_num == 7 else "Quest"
+        elif dfa_source_type == "drop":
+            cat = "Raid" if dfa_drop_zone in ("Blackwing Descent", "Siege of Orgrimmar") else "Exploration"
+        elif mask_id <= 28:
+            cat = "PvP"
+        else:
+            cat = "Achievement"
+        kind = cat
+
+        # Build localized notes (`note_ru`, `note_en`) from official DB2 / Data for Azeroth metadata
+        note_en = curated.get("note_en") or ""
+        note_ru = curated.get("note_ru") or ""
+
+        if not note_en or not note_ru:
+            if ach_desc_en or ach_desc_ru:
+                note_en = note_en or ach_desc_en
+                note_ru = note_ru or ach_desc_ru
+            elif dfa_source_type == "faction" or faction_id:
+                fac_en_label = faction_by_id_en.get(faction_id) or dfa_faction_name or "Faction"
+                fac_ru_label = faction_by_id_ru.get(faction_id) or COVENANT_LABELS_RU.get(dfa_faction_name or "") or fac_en_label
+                if req_renown:
+                    note_en = note_en or f"Reach Renown {req_renown} with {fac_en_label}."
+                    note_ru = note_ru or f"Достигните {req_renown}-го уровня известности у фракции «{fac_ru_label}»."
+                else:
+                    note_en = note_en or f"Reach Exalted reputation with {fac_en_label}."
+                    note_ru = note_ru or f"Достигните Превознесения у фракции «{fac_ru_label}»."
+            elif dfa_source_type == "currency" and dfa_currency:
+                if "timewarped" in dfa_currency.lower():
+                    note_en = note_en or "Purchased from Timewalking vendors for Timewarped Badges during Timewalking events."
+                    note_ru = note_ru or "Приобретается у торговцев Путешествий во времени за Искаженные временем знаки."
+                else:
+                    note_en = note_en or f"Purchased with currency: {dfa_currency}."
+                    note_ru = note_ru or f"Приобретается за валюту: {dfa_currency}."
+            elif dfa_source_type == "quest":
+                if dfa_quest_id and exp_num == 7:
+                    note_en = note_en or f"Complete the Legion Class Order Hall campaign (Quest #{dfa_quest_id})."
+                    note_ru = note_ru or f"Завершите кампанию классового оплота Legion (Задание #{dfa_quest_id})."
+                elif dfa_quest_id:
+                    note_en = note_en or f"Reward from quest #{dfa_quest_id}."
+                    note_ru = note_ru or f"Награда за выполнение задания #{dfa_quest_id}."
+                elif dfa_drop_name:
+                    note_en = note_en or f"Reward from quest: {dfa_drop_name}."
+                    note_ru = note_ru or f"Награда за задание «{dfa_drop_name}»."
+            elif dfa_source_type == "drop" and dfa_drop_name:
+                note_en = note_en or f"Granted by defeating or looting: {dfa_drop_name}."
+                note_ru = note_ru or f"Добывается или дается за победу: {dfa_drop_name}."
+            elif dfa_source_type == "vendor" and dfa_drop_name:
+                note_en = note_en or f"Purchased from vendor: {dfa_drop_name}."
+                note_ru = note_ru or f"Приобретается у торговца: {dfa_drop_name}."
+            elif dfa_source_type == "promotion" and dfa_drop_name:
+                note_en = note_en or f"Special promotion reward: {dfa_drop_name}."
+                note_ru = note_ru or f"Награда специальной акции: {dfa_drop_name}."
+            elif dfa_drop_name:
+                note_en = note_en or f"Source: {dfa_drop_name}."
+                note_ru = note_ru or f"Источник: {dfa_drop_name}."
+
+        if not obtainable:
+            if note_en and "no longer obtainable" not in note_en.lower():
+                note_en = f"{note_en} (No longer obtainable)"
+            elif not note_en:
+                note_en = "Legacy title — no longer obtainable in-game."
+            if note_ru and "недоступно" not in note_ru.lower():
+                note_ru = f"{note_ru} (Более недоступно для получения)"
+            elif not note_ru:
+                note_ru = "Наследие прошлых сезонов — более недоступно для получения."
+
+        quest_id = curated.get("questID") or dfa_quest_id
+
         # Resolve mapID and coordinates (Curated -> Raid/Dungeon entrance -> Zone name match)
         map_id = curated.get("mapID")
         coord_x = curated.get("x")
         coord_y = curated.get("y")
 
-        if not map_id:
+        full_search_blob = f"{search_blob} {note_en} {note_ru} {dfa_drop_zone or ''} {dfa_faction_name or ''}".lower()
+        if not map_id and not curated.get("noZone"):
             for inst_key, cinfo in dungeon_coords.items():
-                if len(inst_key) >= 5 and inst_key in search_blob:
+                if len(inst_key) >= 5 and inst_key in full_search_blob:
                     map_id = cinfo["mapID"]
                     coord_x = cinfo["x"]
                     coord_y = cinfo["y"]
                     break
             if not map_id:
-                for zname, mid in zone_to_mapid.items():
-                    if len(zname) >= 6 and zname in search_blob:
+                for zname, mid in sorted(zone_to_mapid.items(), key=lambda kv: -len(kv[0])):
+                    if len(zname) >= 6 and re.search(rf"\b{re.escape(zname)}\b", full_search_blob):
                         map_id = mid
                         break
 
@@ -575,7 +730,7 @@ def main():
         if not difficulty:
             if not obtainable:
                 difficulty = "LEGACY"
-            elif cat in ("PvP", "PvP Rank") or kind == "PvP Rank":
+            elif cat in ("PvP", "PvP Rank"):
                 difficulty = "PVP"
             elif cat in ("Raid", "Dungeon"):
                 difficulty = "SOLO_RAID" if exp_num <= 10 else "GROUP"
@@ -583,10 +738,18 @@ def main():
                 difficulty = "SOLO_FAST"
             elif cat == "Reputation" or faction_id:
                 difficulty = "SOLO_GRIND"
-            elif exp_num <= 9 and rarity_pct and rarity_pct >= 12.0:
+            elif exp_num <= 9 and rarity_pct and rarity_pct >= 15.0:
                 difficulty = "SOLO_FAST"
             else:
                 difficulty = "SOLO_GRIND"
+
+        rarity_tier = (
+            5 if (rarity_pct is not None and rarity_pct < 1.0)
+            else 4 if (rarity_pct is not None and rarity_pct < 3.0)
+            else 3 if (rarity_pct is not None and rarity_pct < 10.0)
+            else 2 if (rarity_pct is not None and rarity_pct < 25.0)
+            else 1
+        )
 
         records.append({
             "maskID": mask_id,
@@ -613,8 +776,6 @@ def main():
             "achDesc_en": ach_desc_en,
             "icon": icon_id if icon_id > 0 else None,
             "questID": quest_id,
-            "questName_ru": quest_name_ru,
-            "questName_en": quest_name_en,
             "factionID": faction_id,
             "reqStanding": req_standing,
             "reqRenown": req_renown,
@@ -629,12 +790,13 @@ def main():
 
     os.makedirs(os.path.dirname(OUT_FILE), exist_ok=True)
     now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    minor_ver = int(datetime.now(timezone.utc).strftime("%Y%m%d%H"))
+    minor_ver = int(datetime.now(timezone.utc).strftime("%Y%m%d%H")) + 1
 
     lines = [
         "-- =============================================================================",
         f"-- TitlesDB-1.0 — Embedded Title Collector Database ({len(records)} titles)",
         f"-- Generated automatically by tools/build_titles_db.py on {now_str}",
+        "-- Rarity & obtainability powered by Data for Azeroth + Blizzard DB2 (Wago.tools)",
         "-- =============================================================================",
         'local MAJOR, MINOR = "TitlesDB-1.0", ' + str(minor_ver),
         "local lib = LibStub and LibStub:NewLibrary(MAJOR, MINOR)",
@@ -665,7 +827,10 @@ def main():
             f"rarityTier={r['rarityTier']}",
         ]
         if r["rarity"] is not None:
-            parts.append(f"rarity={r['rarity']:.2f}")
+            if r["rarity"] < 0.1:
+                parts.append(f"rarity={r['rarity']:.4f}")
+            else:
+                parts.append(f"rarity={r['rarity']:.2f}")
         if r["achID"]:
             parts.append(f"achID={r['achID']}")
         if r["achName_ru"]:
@@ -680,10 +845,6 @@ def main():
             parts.append(f"icon={r['icon']}")
         if r["questID"]:
             parts.append(f"questID={r['questID']}")
-        if r["questName_ru"]:
-            parts.append(f"questName_ru={lua_str(r['questName_ru'])}")
-        if r["questName_en"]:
-            parts.append(f"questName_en={lua_str(r['questName_en'])}")
         if r["factionID"]:
             parts.append(f"factionID={r['factionID']}")
         if r["reqStanding"]:
@@ -713,11 +874,12 @@ def main():
         f.write("\n".join(lines))
 
     with_ach = sum(1 for r in records if r["achID"])
+    with_rarity = sum(1 for r in records if r["rarity"] is not None)
     with_map = sum(1 for r in records if r["mapID"])
     with_coords = sum(1 for r in records if r["x"] is not None)
     obtainable_cnt = sum(1 for r in records if r["obtainable"])
     print(f"[OK] Generated {OUT_FILE}")
-    print(f"     Total titles: {len(records)} (Obtainable: {obtainable_cnt}, With achID: {with_ach}, With mapID: {with_map}, With exact coords: {with_coords})")
+    print(f"     Total titles: {len(records)} (Obtainable: {obtainable_cnt}, With DfA Rarity: {with_rarity}, With achID: {with_ach}, With mapID: {with_map}, With exact coords: {with_coords})")
 
 
 if __name__ == "__main__":

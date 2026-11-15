@@ -414,7 +414,9 @@ function addon:FormatRarityTier(rarityPct)
     if type(rarityPct) ~= "number" then
         return self:L("NO_DATA"), self:L("TIER_UNKNOWN"), "|cff999999"
     end
-    if rarityPct < 1.0 then
+    if rarityPct < 0.05 then
+        return string.format("|cffff8000%.3f%%|r", rarityPct), self:L("TIER_MYTHIC"), "|cffff8000"
+    elseif rarityPct < 1.0 then
         return string.format("|cffff8000%.2f%%|r", rarityPct), self:L("TIER_MYTHIC"), "|cffff8000"
     elseif rarityPct < 3.0 then
         return string.format("|cffff5500%.2f%%|r", rarityPct), self:L("TIER_ULTRA"), "|cffff5500"
