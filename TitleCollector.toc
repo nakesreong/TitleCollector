@@ -1,0 +1,31 @@
+## Interface: 120107, 120105, 120001, 110207
+## Title: |cffffd100Title|r|cff00ccffCollector|r
+## Notes: Track player titles, live achievement & reputation progress, "Almost Done" roadmap, current zone helper, global/realm rarity, portal navigation & optional spec auto-title switcher.
+## Notes-ruRU: Коллекция и живой трекер прогресса званий («Почти готово», «В текущей зоне», дерево мета-ачивок и репутаций, редкость по миру и серверу, навигация по порталам и авто-смена титулов).
+## Notes-deDE: Titel-Sammlung und Fortschritts-Tracker (Fast fertig, Aktuelle Zone, Erfolgs- & Ruffortschritt, Welt-/Realm-Seltenheit, Portal-Navigation & Auto-Titel).
+## Notes-frFR: Collection de titres et suivi de progression en direct (Presque terminé, Zone actuelle, hauts faits, réputations, rareté mondiale/royaume et navigation).
+## Notes-esES: Colección de títulos y seguimiento de progreso en vivo (Casi listo, Zona actual, logros, reputación, rareza global/reino y navegación por portales).
+## Notes-esMX: Colección de títulos y seguimiento de progreso en vivo (Casi listo, Zona actual, logros, reputación, rareza global/reino y navegación por portales).
+## Notes-itIT: Collezione di titoli e tracciamento dei progressi (Quasi completati, Zona attuale, imprese, reputazioni, rarità globale/reame e navigazione).
+## Notes-ptBR: Coleção de títulos e rastreador de progresso ao vivo (Quase pronto, Zona atual, conquistas, reputação, raridade global/reino e navegação).
+## Notes-koKR: 칭호 수집품 및 실시간 진행도 추적기 (완료 임박, 현재 지역, 업적/평판 진행도, 전 세계/서버 희귀도 및 포탈 내비게이션).
+## Notes-zhCN: 头衔藏品与实时进度追踪器（即将完成、当前区域、成就与声望进度、全球/服务器稀有度、跨区传送门导航与专精自动切换头衔）。
+## Notes-zhTW: 頭銜收藏與即時進度追蹤器（即將完成、當前區域、成就與聲望進度、全球/伺服器稀有度、跨區傳送門導航與專精自動切換頭銜）。
+## Author: Gemini (Tiger) | QA & Vision: Anya (5cr3am1ng5oul)
+## Version: 1.0.0
+## SavedVariables: TitleCollectorDB
+## OptionalDeps: TomTom, ElvUI
+## IconTexture: Interface\ICONS\INV_Crown_01
+
+Libs\LibStub\LibStub.lua
+Libs\CallbackHandler-1.0\CallbackHandler-1.0.lua
+Libs\LibDataBroker-1.1\LibDataBroker-1.1.lua
+Libs\LibDBIcon-1.0\LibDBIcon-1.0.lua
+Libs\TitlesDB-1.0\TitlesDB-1.0.lua
+
+Locales.lua
+Core.lua
+ProgressEngine.lua
+Navigation.lua
+AutoTitle.lua
+UI.lua

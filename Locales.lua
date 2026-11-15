@@ -1,0 +1,290 @@
+local _, addon = ...
+
+-- ============================================================================
+-- TitleCollector — Locales.lua
+-- Полная двуязычная локализация (ruRU + enUS) с динамическим переключением
+-- на лету без перезагрузки интерфейса (/tc lang).
+-- ============================================================================
+
+local Locales = {
+    ruRU = {
+        ADDON_SUBTITLE = "Коллекция званий, живой прогресс и навигатор",
+        HEADER_COLLECTED_FMT = "Собрано: %d / %d (%d%%)",
+        HEADER_ACTIVE_TITLE_NONE = "Без активного звания",
+        HEADER_ACTIVE_TITLE_FMT = "Сейчас надето: |cffffd100%s|r",
+
+        -- Вкладки
+        TAB_ALMOST = "Почти готово",
+        TAB_ZONE = "В текущей зоне",
+        TAB_ALL = "Все звания",
+        TAB_COLLECTED = "Собранные",
+        TAB_AUTOTITLE = "Авто-титулы",
+        TAB_SETTINGS = "Настройки",
+
+        -- Фильтры и поиск
+        SEARCH_PLACEHOLDER = "Поиск звания, достижения или зоны (RU / EN)...",
+        FILTER_EXP_ALL = "Все дополнения",
+        FILTER_CAT_ALL = "Все источники",
+        FILTER_DIFF_ALL = "Любая сложность",
+        FILTER_AFFIX_ALL = "Префикс + Суффикс",
+        FILTER_AFFIX_PREFIX = "Только префиксы (перед именем)",
+        FILTER_AFFIX_SUFFIX = "Только суффиксы (после имени)",
+        FILTER_ONLY_FAV = "Только ★ Избранные",
+        SORT_PROGRESS = "По прогрессу (%)",
+        SORT_RARITY = "По редкости",
+        SORT_NAME = "По алфавиту",
+        SORT_EXP = "По дополнению",
+
+        -- Сложность
+        DIFF_SOLO_FAST = "Соло (Быстро)",
+        DIFF_SOLO_RAID = "Соло (Старый рейд)",
+        DIFF_SOLO_GRIND = "Соло (Гринд / Репа)",
+        DIFF_GROUP = "Группа / Актуал",
+        DIFF_PVP = "PvP / Арена",
+        DIFF_LEGACY = "Недоступно (Наследие)",
+
+        -- Категории
+        CAT_ACHIEVEMENT = "Достижения",
+        CAT_RAID = "Рейды",
+        CAT_DUNGEON = "Подземелья",
+        CAT_PVP = "PvP",
+        CAT_REPUTATION = "Репутация / Известность",
+        CAT_QUEST = "Задания и Кампания",
+        CAT_EXPLORATION = "Исследования",
+        CAT_HOLIDAY = "Игровые события",
+        CAT_PROFESSION = "Профессии",
+        CAT_OTHER = "Прочее / Промо",
+
+        -- Редкость (как в MountCollector)
+        RARITY_GLOBAL_LABEL = "Глобальная редкость (По миру):",
+        RARITY_SERVER_LABEL_FMT = "По серверу (%s):",
+        RARITY_SERVER_VAL_FMT = "~%d влад. из %d |cff88ccff(встречено лично: %d)|r",
+        RARITY_SERVER_SEEN_ONLY_FMT = "встречено в мире: %d игр.",
+        NO_DATA = "Нет данных",
+        TIER_MYTHIC = "Мифическое (<1%)",
+        TIER_ULTRA = "Ультра-редкое (<3%)",
+        TIER_EPIC = "Эпическое (<10%)",
+        TIER_RARE = "Редкое (<25%)",
+        TIER_UNCOMMON = "Необычное (<50%)",
+        TIER_COMMON = "Обычное (50%+)",
+        TIER_UNKNOWN = "Неизвестно",
+
+        -- Инспектор (правая панель)
+        INSP_PREVIEW_LABEL = "Предпросмотр над персонажем:",
+        INSP_GENDER_M = "Муж.",
+        INSP_GENDER_F = "Жен.",
+        INSP_AFFIX_PREFIX = "Префикс (перед именем)",
+        INSP_AFFIX_SUFFIX = "Суффикс (после имени)",
+        INSP_BTN_EQUIP = "Надеть звание",
+        INSP_BTN_UNEQUIP = "Снять звание",
+        INSP_BTN_EQUIPPED = "Уже надето ✓",
+        INSP_BTN_TRACK = "📌 В трекер целей",
+        INSP_BTN_UNTRACK = "Убрать из трекера",
+        INSP_BTN_WAYPOINT = "Проложить путь (3D-метка + Порталы)",
+        INSP_BTN_OPEN_ACH = "Открыть в Достижениях",
+        INSP_BTN_WOWHEAD = "Ссылка Wowhead",
+        INSP_PROGRESS_HEADER = "Прогресс получения и критерии:",
+        INSP_ONLY_MISSING_CRIT = "Только невыполненные шаги",
+        INSP_ALL_CRIT_DONE = "Все критерии выполнены! Звание в коллекции.",
+        INSP_NO_CRITERIA_INFO = "Одношаговое условие (выполните указанный источник ниже).",
+        INSP_HOW_TO_GET = "Как получить:",
+        INSP_SOURCE_ACH_FMT = "Достижение: |cffffd100%s|r (#%d)",
+        INSP_SOURCE_QUEST_FMT = "Задание: |cffffd100%s|r (#%d)",
+        INSP_SOURCE_FACTION_FMT = "Фракция ID: |cffffd100#%d|r",
+        INSP_LOCATION_FMT = "Локация: |cff00ccff%s|r%s",
+
+        -- Авто-титулы (Вкладка 4)
+        AUTO_HEADER_TITLE = "Умная авто-смена званий (Специализации и Контент)",
+        AUTO_MASTER_ENABLE = "Включить автоматическую смену званий (Auto-Title)",
+        AUTO_MASTER_DESC = "Когда опция выключена, аддон никогда сам не меняет ваше текущее звание.",
+        AUTO_SPEC_SECTION = "Привязка звания к специализации персонажа:",
+        AUTO_CONTEXT_SECTION = "Приоритет по типу контента (перекрывает спек, если задано):",
+        AUTO_CTX_PVP = "Арена / Поля боя (PvP):",
+        AUTO_CTX_RAID = "Рейды и Эпохальные+ подземелья:",
+        AUTO_CTX_CITY = "Столицы и Отдых:",
+        AUTO_BTN_ASSIGN_SELECTED = "Назначить выбранное слева",
+        AUTO_BTN_ASSIGN_FAV_RND = "★ Случайное из Избранных",
+        AUTO_BTN_CLEAR = "Не менять",
+        AUTO_BTN_ROLL_FAV_NOW = "🎲 Надеть случайное ★ Избранное сейчас",
+        AUTO_RULE_NONE = "|cff777777— Не задано (оставлять текущее) —|r",
+        AUTO_RULE_FAV_RND = "|cffffd100★ Случайное из Избранных|r",
+
+        -- Настройки (Вкладка 5)
+        SET_HEADER = "Настройки TitleCollector",
+        SET_HIDE_UNOBTAINABLE = "Скрывать более недоступные (Удалённые / Наследие) звания",
+        SET_HIDE_OPPOSITE_FAC = "Скрывать звания противоположной фракции",
+        SET_SHOW_GLOBAL_RARITY = "Показывать глобальную редкость званий (% по миру)",
+        SET_SHOW_SERVER_RARITY = "Показывать оценку редкости по вашему серверу",
+        SET_SCAN_REALM_CENSUS = "Пассивно собирать статистику званий игроков вокруг (Realm Census)",
+        SET_SHOW_MINIMAP = "Показывать круглую кнопку у миникарты",
+        SET_SHOW_CHAR_BTN = "Показывать кнопку «TitleCollector» в окне званий персонажа",
+        SET_ENABLE_AUTO_TITLE = "Включить модуль автоматической смены званий (Auto-Title)",
+        SET_LANG_LABEL = "Язык интерфейса и базы званий:",
+
+        -- Миникарта и сообщения
+        MINIMAP_TT_SUBTITLE = "Коллекция и трекер прогресса званий",
+        MINIMAP_TT_COLLECTED_FMT = "Собрано званий: |cffffd100%d / %d|r (%.1f%%)",
+        MINIMAP_TT_ALMOST_FMT = "Почти готово (70%%+): |cff00ff96%d шт.|r",
+        MINIMAP_TT_LCLICK = "|cffffd100ЛКМ:|r Открыть / закрыть TitleCollector",
+        MINIMAP_TT_RCLICK = "|cffffd100ПКМ:|r Надеть случайное ★ Избранное звание",
+        MINIMAP_TT_SHIFT_RCLICK = "|cffffd100Shift + ПКМ:|r Сменить иконку кнопки миникарты",
+        MINIMAP_TT_DRAG = "|cffaaaaaaЗажмите ЛКМ для перемещения по ободку миникарты|r",
+        CHAT_EQUIPPED_FMT = "|cffffd100[TitleCollector]|r Надето звание: |cff00ff96%s|r",
+        CHAT_COMBAT_QUEUED_FMT = "|cffffd100[TitleCollector]|r Вы в бою — звание |cff00ff96%s|r наденется сразу после выхода из боя.",
+        CHAT_NO_FAVS = "|cffffd100[TitleCollector]|r Сначала отметьте звездочкой ★ хотя бы одно открытое звание!",
+        EMPTY_LIST_ALMOST = "Нет начатых званий с частичным прогрессом под текущие фильтры.\nПереключитесь во вкладку «Все звания», чтобы выбрать новую цель!",
+        EMPTY_LIST_ZONE = "В текущей локации (%s) не найдено несобранных званий с привязкой к зоне.\nПопробуйте вкладку «Почти готово» или «Все звания»!",
+        EMPTY_LIST_DEFAULT = "По вашему запросу и фильтрам званий не найдено.",
+        UNKNOWN_ZONE = "Неизвестная зона",
+        CHAR_PANE_BTN = "Коллекция званий",
+    },
+
+    enUS = {
+        ADDON_SUBTITLE = "Title Collection, Live Progress Tracker & Navigator",
+        HEADER_COLLECTED_FMT = "Collected: %d / %d (%d%%)",
+        HEADER_ACTIVE_TITLE_NONE = "No active title equipped",
+        HEADER_ACTIVE_TITLE_FMT = "Active Title: |cffffd100%s|r",
+
+        TAB_ALMOST = "Almost Done",
+        TAB_ZONE = "Current Zone",
+        TAB_ALL = "All Titles",
+        TAB_COLLECTED = "Collected",
+        TAB_AUTOTITLE = "Auto-Titles",
+        TAB_SETTINGS = "Settings",
+
+        SEARCH_PLACEHOLDER = "Search title, achievement, or zone (EN / RU)...",
+        FILTER_EXP_ALL = "All Expansions",
+        FILTER_CAT_ALL = "All Categories",
+        FILTER_DIFF_ALL = "Any Difficulty",
+        FILTER_AFFIX_ALL = "Prefix + Suffix",
+        FILTER_AFFIX_PREFIX = "Prefixes Only (before name)",
+        FILTER_AFFIX_SUFFIX = "Suffixes Only (after name)",
+        FILTER_ONLY_FAV = "★ Favorites Only",
+        SORT_PROGRESS = "By Progress (%)",
+        SORT_RARITY = "By Rarity",
+        SORT_NAME = "Alphabetical",
+        SORT_EXP = "By Expansion",
+
+        DIFF_SOLO_FAST = "Solo (Quick Win)",
+        DIFF_SOLO_RAID = "Solo (Legacy Raid)",
+        DIFF_SOLO_GRIND = "Solo (Grind / Rep)",
+        DIFF_GROUP = "Group / Current",
+        DIFF_PVP = "PvP / Rated",
+        DIFF_LEGACY = "Unobtainable (Legacy)",
+
+        CAT_ACHIEVEMENT = "Achievements",
+        CAT_RAID = "Raids",
+        CAT_DUNGEON = "Dungeons",
+        CAT_PVP = "PvP",
+        CAT_REPUTATION = "Reputation / Renown",
+        CAT_QUEST = "Quests & Campaign",
+        CAT_EXPLORATION = "Exploration",
+        CAT_HOLIDAY = "World Events",
+        CAT_PROFESSION = "Professions",
+        CAT_OTHER = "Other / Promotions",
+
+        RARITY_GLOBAL_LABEL = "Global Rarity (World):",
+        RARITY_SERVER_LABEL_FMT = "Realm Rarity (%s):",
+        RARITY_SERVER_VAL_FMT = "~%d owners of %d |cff88ccff(spotted live: %d)|r",
+        RARITY_SERVER_SEEN_ONLY_FMT = "spotted in world: %d players",
+        NO_DATA = "No data",
+        TIER_MYTHIC = "Mythic (<1%)",
+        TIER_ULTRA = "Ultra Rare (<3%)",
+        TIER_EPIC = "Epic (<10%)",
+        TIER_RARE = "Rare (<25%)",
+        TIER_UNCOMMON = "Uncommon (<50%)",
+        TIER_COMMON = "Common (50%+)",
+        TIER_UNKNOWN = "Unknown",
+
+        INSP_PREVIEW_LABEL = "Character Nameplate Preview:",
+        INSP_GENDER_M = "Male",
+        INSP_GENDER_F = "Female",
+        INSP_AFFIX_PREFIX = "Prefix (before name)",
+        INSP_AFFIX_SUFFIX = "Suffix (after name)",
+        INSP_BTN_EQUIP = "Equip Title",
+        INSP_BTN_UNEQUIP = "Remove Title",
+        INSP_BTN_EQUIPPED = "Equipped ✓",
+        INSP_BTN_TRACK = "📌 Track Objective",
+        INSP_BTN_UNTRACK = "Untrack",
+        INSP_BTN_WAYPOINT = "Plot Route (3D Waypoint + Portals)",
+        INSP_BTN_OPEN_ACH = "Open in Achievements",
+        INSP_BTN_WOWHEAD = "Wowhead Link",
+        INSP_PROGRESS_HEADER = "Acquisition Progress & Criteria:",
+        INSP_ONLY_MISSING_CRIT = "Show remaining steps only",
+        INSP_ALL_CRIT_DONE = "All criteria completed! Title is unlocked.",
+        INSP_NO_CRITERIA_INFO = "Single-step requirement (complete the source listed below).",
+        INSP_HOW_TO_GET = "How to Obtain:",
+        INSP_SOURCE_ACH_FMT = "Achievement: |cffffd100%s|r (#%d)",
+        INSP_SOURCE_QUEST_FMT = "Quest: |cffffd100%s|r (#%d)",
+        INSP_SOURCE_FACTION_FMT = "Faction ID: |cffffd100#%d|r",
+        INSP_LOCATION_FMT = "Location: |cff00ccff%s|r%s",
+
+        AUTO_HEADER_TITLE = "Smart Auto-Title Switcher (Specializations & Content)",
+        AUTO_MASTER_ENABLE = "Enable Automatic Title Switching (Auto-Title)",
+        AUTO_MASTER_DESC = "When disabled, TitleCollector will never automatically change your active title.",
+        AUTO_SPEC_SECTION = "Assign Title per Character Specialization:",
+        AUTO_CONTEXT_SECTION = "Content Type Priority (overrides spec rule when set):",
+        AUTO_CTX_PVP = "Arenas & Battlegrounds (PvP):",
+        AUTO_CTX_RAID = "Raids & Mythic+ Dungeons:",
+        AUTO_CTX_CITY = "Sanctuaries & Rested Cities:",
+        AUTO_BTN_ASSIGN_SELECTED = "Assign Selected Title",
+        AUTO_BTN_ASSIGN_FAV_RND = "★ Random Favorite",
+        AUTO_BTN_CLEAR = "Do Not Change",
+        AUTO_BTN_ROLL_FAV_NOW = "🎲 Equip Random ★ Favorite Now",
+        AUTO_RULE_NONE = "|cff777777— None (keep current title) —|r",
+        AUTO_RULE_FAV_RND = "|cffffd100★ Random Favorite Title|r",
+
+        SET_HEADER = "TitleCollector Settings",
+        SET_HIDE_UNOBTAINABLE = "Hide unobtainable (Removed / Legacy) titles",
+        SET_HIDE_OPPOSITE_FAC = "Hide opposite faction titles",
+        SET_SHOW_GLOBAL_RARITY = "Show global playerbase rarity (%)",
+        SET_SHOW_SERVER_RARITY = "Show estimated realm rarity & live census count",
+        SET_SCAN_REALM_CENSUS = "Passively count titles worn by nearby players (Realm Census)",
+        SET_SHOW_MINIMAP = "Show round minimap button",
+        SET_SHOW_CHAR_BTN = "Show 'TitleCollector' button on Character Titles pane",
+        SET_ENABLE_AUTO_TITLE = "Enable automatic title switching module (Auto-Title)",
+        SET_LANG_LABEL = "UI & Database Language:",
+
+        MINIMAP_TT_SUBTITLE = "Title Collection & Progress Tracker",
+        MINIMAP_TT_COLLECTED_FMT = "Titles Collected: |cffffd100%d / %d|r (%.1f%%)",
+        MINIMAP_TT_ALMOST_FMT = "Almost Done (70%%+): |cff00ff96%d titles|r",
+        MINIMAP_TT_LCLICK = "|cffffd100Left-Click:|r Toggle TitleCollector window",
+        MINIMAP_TT_RCLICK = "|cffffd100Right-Click:|r Equip random ★ Favorite title",
+        MINIMAP_TT_SHIFT_RCLICK = "|cffffd100Shift + Right-Click:|r Cycle minimap button icon",
+        MINIMAP_TT_DRAG = "|cffaaaaaaHold Left-Click to drag around the minimap border|r",
+        CHAT_EQUIPPED_FMT = "|cffffd100[TitleCollector]|r Equipped title: |cff00ff96%s|r",
+        CHAT_COMBAT_QUEUED_FMT = "|cffffd100[TitleCollector]|r In combat — |cff00ff96%s|r will be equipped right after combat.",
+        CHAT_NO_FAVS = "|cffffd100[TitleCollector]|r Star ★ at least one unlocked title as a Favorite first!",
+        EMPTY_LIST_ALMOST = "No in-progress titles match your current filters.\nSwitch to 'All Titles' to pick a new target!",
+        EMPTY_LIST_ZONE = "No uncollected zone-specific titles found in %s.\nCheck 'Almost Done' or 'All Titles'!",
+        EMPTY_LIST_DEFAULT = "No titles match your current search and filter criteria.",
+        UNKNOWN_ZONE = "Unknown Zone",
+        CHAR_PANE_BTN = "TitleCollector",
+    },
+}
+
+addon.Locales = Locales
+
+function addon:GetActiveLocaleCode()
+    local pref = self.db and self.db.settings and self.db.settings.language
+    if pref and pref ~= "AUTO" then
+        return (pref == "ruRU") and "ruRU" or "enUS"
+    end
+    local clientLoc = GetLocale and GetLocale() or "enUS"
+    return (clientLoc == "ruRU") and "ruRU" or "enUS"
+end
+
+function addon:IsEnglish()
+    return self:GetActiveLocaleCode() ~= "ruRU"
+end
+
+function addon:L(key, ...)
+    local code = self:GetActiveLocaleCode()
+    local tbl = Locales[code] or Locales.enUS
+    local str = tbl[key] or Locales.enUS[key] or key
+    if select("#", ...) > 0 then
+        local ok, res = pcall(string.format, str, ...)
+        if ok then return res end
+    end
+    return str
+end
