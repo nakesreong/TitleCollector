@@ -179,7 +179,7 @@ function addon:EvaluateTitleProgress(title, forceRefresh)
                 -- Одношаговое достижение без под-критериев
                 totalCount = 1
                 totalWeight = 1.0
-                local done = (achCompleted == true or isCollected)
+                local done = (isCollected == true)
                 if done then
                     doneCount = 1
                     earnedWeight = 1.0
@@ -204,11 +204,11 @@ function addon:EvaluateTitleProgress(title, forceRefresh)
         if fProg then
             totalCount = totalCount + 1
             totalWeight = totalWeight + 1.0
-            local fDone = fProg.completed or isCollected
+            local fDone = isCollected or (fProg.completed and totalCount > 1)
             if fDone then
                 doneCount = doneCount + 1
                 earnedWeight = earnedWeight + 1.0
-            else
+            elseif not fProg.completed then
                 earnedWeight = earnedWeight + (fProg.pct / 100.0)
             end
             table.insert(criteria, 1, {

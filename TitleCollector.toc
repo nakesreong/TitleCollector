@@ -15,7 +15,7 @@
 ## Version: 1.0.0
 ## SavedVariables: TitleCollectorDB
 ## OptionalDeps: TomTom, ElvUI
-## IconTexture: Interface\ICONS\INV_Crown_01
+## IconTexture: 237537
 
 Libs\LibStub\LibStub.lua
 Libs\CallbackHandler-1.0\CallbackHandler-1.0.lua

@@ -55,125 +55,125 @@ EXP_MAP = {
     "midnight": 12,
 }
 
-# Curated coordinates, reputations, quest chains, and zone mappings keyed by maskID (CharTitles.Mask_ID)
-CURATED_BY_MASK = {
+# Curated coordinates, reputations, quest chains, and zone mappings keyed by lowercase clean_en
+CURATED_BY_TITLE = {
     # Classic / World / Iconic Solo
-    110: { # Jenkins
+    "jenkins": {
         "achID": 2188, "mapID": 84, "x": 48.7, "y": 88.1, "difficulty": "SOLO_FAST",
         "note_ru": "Убейте 50 дракончиков в Верхней части пика Черной горы за 15 секунд (делается соло за 2 минуты).",
         "note_en": "Kill 50 rookery whelps within 15 seconds in Upper Blackrock Spire (easy 2-minute solo).",
     },
-    138: { # the Patient
+    "the patient": {
         "achID": 4477, "difficulty": "SOLO_FAST",
         "note_ru": "Пройдите случайные героические подземелья с 50 случайными игроками через Поиск группы.",
         "note_en": "Complete random heroic dungeons with 50 random players via Dungeon Finder.",
     },
-    45: { # the Explorer
+    "the explorer": {
         "achID": 46, "difficulty": "SOLO_FAST",
         "note_ru": "Исследуйте все континенты классического мира, Запределья и Нордскола (быстро пролетается на драконе).",
         "note_en": "Explore the continents of Eastern Kingdoms, Kalimdor, Outland, and Northrend.",
     },
-    93: { # the Loremaster
+    "loremaster": {
         "achID": 7520, "difficulty": "SOLO_GRIND",
         "note_ru": "Глобальное мета-достижение «Хранитель мудрости»: завершите сюжетные цепочки квестов континентов.",
         "note_en": "Complete the quest achievements across major continents to earn The Loremaster.",
     },
-    111: { # the Insane
+    "the insane": {
         "achID": 2336, "difficulty": "SOLO_GRIND",
         "note_ru": "Легендарный подвиг «Чокнутый»: превознесение с Пиратами Кровавого Паруса (до Уважения), Картелью Хитрой Шестеренки, Ярмаркой Новолуния и Черным Вороном.",
         "note_en": "Exalted with Booty Bay, Everlook, Gadgetzan, Ratchet, Darkmoon Faire, Ravenholdt, and Honored with Bloodsail Buccaneers.",
     },
     # TBC / Outland
-    64: { # Hand of A'dal
+    "hand of a'dal": {
         "obtainable": False, "difficulty": "LEGACY",
     },
-    62: { # Champion of the Naaru
+    "champion of the naaru": {
         "obtainable": False, "difficulty": "LEGACY",
     },
-    63: { # of the Shattered Sun
+    "of the shattered sun": {
         "factionID": 1077, "reqStanding": 8, "mapID": 122, "x": 48.0, "y": 25.2, "difficulty": "SOLO_FAST",
         "note_ru": "Достигните Превознесения с Армией Расколотого Солнца на Острове Кель'Данас и купите звание за 1000 золотых у Эльдара Вестника Зари (Терраса Магистров проносится за 15 минут).",
         "note_en": "Reach Exalted with Shattered Sun Offensive on Isle of Quel'Danas and donate 1,000g to Eldara Dawnrunner.",
     },
     # WotLK Raid Solo Classics
-    109: { # of the Nightfall (Sartharion 10)
+    "of the nightfall": {
         "achID": 2051, "mapID": 115, "x": 60.0, "y": 57.0, "difficulty": "SOLO_FAST",
         "note_ru": "Убейте Сартариона в Обсидиановом святилище (10 игроков, Драконий Погост), оставив всех 3 сумеречных драконов живыми (ваншот на любом капе).",
         "note_en": "Engage and defeat Sartharion the Onyx Guardian in 10-player mode with all three Twilight Drakes still alive (Obsidian Sanctum, Dragonblight).",
     },
-    108: { # Twilight Vanquisher (Sartharion 25)
+    "twilight vanquisher": {
         "achID": 2054, "mapID": 115, "x": 60.0, "y": 57.0, "difficulty": "SOLO_FAST",
         "note_ru": "Убейте Сартариона в Обсидиановом святилище (25 игроков, Драконий Погост), оставив всех 3 сумеречных драконов живыми (делается соло за 1 минуту!).",
         "note_en": "Engage and defeat Sartharion in 25-player mode with all three Twilight Drakes still alive (Obsidian Sanctum, Dragonblight).",
     },
-    133: { # the Astral Walker
+    "the astral walker": {
         "achID": 3037, "mapID": 120, "x": 41.6, "y": 17.8, "difficulty": "SOLO_FAST",
         "note_ru": "Победите Алгалона Наблюдателя в Ульдуаре (Грозовая Гряда, Нордскол) — проносится соло за несколько минут.",
         "note_en": "Defeat Algalon the Observer in Ulduar (The Storm Peaks, Northrend).",
     },
-    134: { # Starcaller
+    "starcaller": {
         "achID": 3036, "mapID": 120, "x": 41.6, "y": 17.8, "difficulty": "SOLO_FAST",
         "note_ru": "Победите Алгалона Наблюдателя в Ульдуаре.",
         "note_en": "Defeat Algalon the Observer in Ulduar.",
     },
-    140: { # the Kingslayer
+    "the kingslayer": {
         "achID": 4530, "mapID": 118, "x": 53.8, "y": 87.0, "difficulty": "SOLO_RAID",
         "note_ru": "Победите Короля-лича в Цитадели Ледяной Короны (10 или 25 игроков, Ледяная Корона).",
         "note_en": "Defeat the Lich King in Icecrown Citadel (10 or 25-player mode).",
     },
-    139: { # the Light of Dawn
+    "the light of dawn": {
         "achID": 4584, "mapID": 118, "x": 53.8, "y": 87.0, "difficulty": "SOLO_RAID",
         "note_ru": "Победите Короля-лича в героическом режиме Цитадели Ледяной Короны на 25 игроков.",
         "note_en": "Defeat the Lich King in 25-player Heroic mode in Icecrown Citadel.",
     },
-    141: { # Bane of the Fallen King
+    "bane of the fallen king": {
         "achID": 4583, "mapID": 118, "x": 53.8, "y": 87.0, "difficulty": "SOLO_RAID",
         "note_ru": "Победите Короля-лича в героическом режиме Цитадели Ледяной Короны на 10 игроков.",
         "note_en": "Defeat the Lich King in 10-player Heroic mode in Icecrown Citadel.",
     },
-    129: { # the Argent Champion
+    "the argent champion": {
         "achID": 945, "mapID": 118, "x": 79.8, "y": 71.8, "difficulty": "SOLO_GRIND",
         "note_ru": "Достигните Превознесения у Серебряного Рассвета и Серебряного Авангарда.",
         "note_en": "Earn Exalted status with the Argent Dawn and the Argent Crusade.",
     },
-    112: { # of the Ashen Verdict
+    "of the ashen verdict": {
         "factionID": 1156, "reqStanding": 8, "mapID": 118, "x": 53.8, "y": 87.0, "difficulty": "SOLO_RAID",
         "note_ru": "Достигните Превознесения с Пепельным союзом внутри Цитадели Ледяной Короны.",
         "note_en": "Reach Exalted with The Ashen Verdict in Icecrown Citadel.",
     },
     # Cataclysm Solo Raids
-    189: { # Dragonslayer
+    "dragonslayer": {
         "achID": 5121, "mapID": 241, "x": 34.0, "y": 78.0, "difficulty": "SOLO_RAID",
         "note_ru": "Победите Синестру в героическом режиме Сумеречного бастиона (Сумеречное нагорье).",
         "note_en": "Defeat Sinestra in Heroic mode in The Bastion of Twilight.",
     },
-    190: { # Blackwing's Bane
+    "blackwing's bane": {
         "achID": 5116, "mapID": 36, "x": 23.0, "y": 26.4, "difficulty": "SOLO_RAID",
         "note_ru": "Победите Нефариана в героическом режиме Твердыни Крыла Тьмы (Пылающие степи).",
         "note_en": "Defeat Nefarian in Heroic mode in Blackwing Descent.",
     },
-    191: { # of the Four Winds
+    "of the four winds": {
         "achID": 5123, "mapID": 249, "x": 38.4, "y": 80.6, "difficulty": "SOLO_RAID",
         "note_ru": "Победите Ал'акира в героическом режиме Трона Четырёх Ветров (Ульдум).",
         "note_en": "Defeat Al'Akir in Heroic mode in Throne of the Four Winds.",
     },
-    193: { # Firelord
+    "firelord": {
         "achID": 5803, "mapID": 198, "x": 47.2, "y": 78.0, "difficulty": "SOLO_RAID",
         "note_ru": "Победите Рагнароса в героическом режиме Огненных Просторов (Гора Хиджал).",
         "note_en": "Defeat Ragnaros in Heroic mode in the Firelands.",
     },
-    197: { # Savior of Azeroth
+    "savior of azeroth": {
         "achID": 6116, "mapID": 71, "x": 64.7, "y": 49.9, "difficulty": "SOLO_RAID",
         "note_ru": "Победите Смертокрыла в героическом режиме Души Дракона (Пещеры Времени, Танарис).",
         "note_en": "Defeat Madness of Deathwing in Heroic mode in Dragon Soul.",
     },
     # MoP / WoD / Legion / BfA / SL / DF / TWW / Midnight Highlights
-    214: { # the Wakener
+    "the wakener": {
         "achID": 8023, "factionID": 1337, "reqStanding": 8, "mapID": 422, "x": 54.4, "y": 35.8, "difficulty": "SOLO_GRIND",
         "note_ru": "Достигните Превознесения с Клакси и пробудите всех Идеалов в Жутких пустошах (Пандария).",
         "note_en": "Awaken all Klaxxi Paragons and reach Exalted with The Klaxxi in Dread Wastes.",
     },
-    502: { # Barter Boss
+    "barter boss": {
         "achID": 17841, "mapID": 2133, "x": 58.0, "y": 53.8, "difficulty": "SOLO_GRIND",
         "note_ru": "Купите шляпу Понзо за 249 валунов для обмена в Пещере Заралек (Лоамм).",
         "note_en": "Purchase Ponzo's hat for 249 Barter Boulders in Loamm (Zaralek Cavern).",
@@ -462,7 +462,7 @@ def main():
 
         meta_en = en_meta.get(mask_id, {})
         meta_ru = ru_meta.get(mask_id, {})
-        curated = CURATED_BY_MASK.get(mask_id, {})
+        curated = CURATED_BY_TITLE.get(clean_en.lower(), {})
 
         # Skip pure unreferenced test/duplicate IDs unless they are in meta_en or matched to an achievement
         ach_id = curated.get("achID") or meta_en.get("achievement_id")

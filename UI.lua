@@ -15,10 +15,10 @@ local ROW_HEIGHT = 40
 local VISIBLE_ROWS = 11
 
 local MINIMAP_ICONS = {
-    { icon = "Interface\\ICONS\\INV_Crown_01",                            name = "Золотая корона",      nameEN = "Golden Crown" },
-    { icon = "Interface\\ICONS\\INV_Misc_Note_02",                        name = "Королевский свиток",  nameEN = "Royal Scroll" },
-    { icon = "Interface\\ICONS\\Achievement_FeatsOfStrength_Gladiator_10", name = "Гладиаторский герб", nameEN = "Heraldic Crest" },
-    { icon = "Interface\\ICONS\\Spell_Holy_ChampionsBond",                name = "Печать славы",        nameEN = "Seal of Glory" },
+    { icon = 237537, name = "Сияние короны",         nameEN = "Radiant Crown" },
+    { icon = 135921, name = "Золотой венец",         nameEN = "Golden Halo" },
+    { icon = 135993, name = "Благословение королей", nameEN = "Crown of Kings" },
+    { icon = 135880, name = "Кубок славы",           nameEN = "Chalice of Glory" },
 }
 
 local DIFF_META = {
@@ -138,7 +138,7 @@ local function GetPlayerClassColorHex()
     local _, classFile = UnitClass("player")
     local c = classFile and _G.RAID_CLASS_COLORS and _G.RAID_CLASS_COLORS[classFile]
     if c and c.colorStr then
-        return "|" .. c.colorStr
+        return "|c" .. c.colorStr
     end
     return "|cff00ff96"
 end
@@ -644,7 +644,7 @@ function addon:EnsureMainWindow()
     local logoTex = header:CreateTexture(nil, "ARTWORK")
     logoTex:SetSize(32, 32)
     logoTex:SetPoint("LEFT", header, "LEFT", 10, 0)
-    logoTex:SetTexture("Interface\\ICONS\\INV_Crown_01")
+    logoTex:SetTexture(237537)
     logoTex:SetTexCoord(0.08, 0.92, 0.08, 0.92)
 
     local titleFS = header:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
@@ -1398,9 +1398,6 @@ function addon:SetupRoundMinimapButton()
         icon:SetSize(20, 20)
         icon:SetPoint("CENTER", btn, "CENTER", 0, 1)
         icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
-        if icon.SetMask then
-            icon:SetMask("Interface\\CharacterFrame\\TempPortraitAlphaMask")
-        end
         if btn.CreateMaskTexture and icon.AddMaskTexture then
             local mask = btn:CreateMaskTexture()
             mask:SetTexture("Interface\\CharacterFrame\\TempPortraitAlphaMask", "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
@@ -1616,7 +1613,7 @@ function addon:EnsureProgressToastFrame()
     iconTex:SetPoint("TOPLEFT", 1, -1)
     iconTex:SetPoint("BOTTOMRIGHT", -1, 1)
     iconTex:SetTexCoord(0.08, 0.92, 0.08, 0.92)
-    iconTex:SetTexture("Interface\\ICONS\\INV_Crown_01")
+    iconTex:SetTexture(237537)
     f.iconTex = iconTex
 
     local headerFS = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
@@ -1675,8 +1672,8 @@ function addon:TriggerProgressToast(title, prog, isUnlocked, forceTest)
 
     local f = self:EnsureProgressToastFrame()
     f.title = title
-    f.iconTex:SetTexture(title.icon or "Interface\\ICONS\\INV_Crown_01")
-    f.headerFS:SetText("|TInterface\\ICONS\\INV_Crown_01:13:13:0:0|t TitleCollector — " .. (isUnlocked and self:L("TOAST_HEADER_UNLOCKED") or self:L("TOAST_HEADER_PROGRESS")))
+    f.iconTex:SetTexture(title.icon or 237537)
+    f.headerFS:SetText("|T237537:13:13:0:0|t TitleCollector — " .. (isUnlocked and self:L("TOAST_HEADER_UNLOCKED") or self:L("TOAST_HEADER_PROGRESS")))
     f.nameFS:SetText(self:GetTitleCleanName(title))
 
     if isUnlocked then
