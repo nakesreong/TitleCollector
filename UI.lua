@@ -623,7 +623,15 @@ function addon:EnsureMainWindow()
     f:SetScript("OnDragStart", f.StartMoving)
     f:SetScript("OnDragStop", f.StopMovingOrSizing)
     f:Hide()
-    tinsert(UISpecialFrames, "TitleCollectorMainFrame")
+    if type(UISpecialFrames) == "table" then
+        local found = false
+        for _, fn in ipairs(UISpecialFrames) do
+            if fn == "TitleCollectorMainFrame" then found = true; break end
+        end
+        if not found then
+            tinsert(UISpecialFrames, "TitleCollectorMainFrame")
+        end
+    end
     ui.mainFrame = f
 
     -- 1. Шапка окна
@@ -719,6 +727,7 @@ function addon:EnsureMainWindow()
     searchBox:SetTextInsets(8, 20, 0, 0)
     ApplyBackdrop(searchBox, 0.04, 0.04, 0.05, 0.98, 0.30, 0.30, 0.35, 1.0)
     searchBox:SetScript("OnEscapePressed", function(eb) eb:ClearFocus() end)
+    searchBox:SetScript("OnEnterPressed", function(eb) eb:ClearFocus() end)
     searchBox:SetScript("OnTextChanged", function(eb, userInput)
         if userInput then
             ui.searchText = eb:GetText() or ""
@@ -1064,13 +1073,15 @@ function addon:EnsureMainWindow()
         { key = "showGlobalRarity",  lbl = "SET_SHOW_GLOBAL_RARITY" },
         { key = "showServerRarity",  lbl = "SET_SHOW_SERVER_RARITY" },
         { key = "scanRealmTitles",   lbl = "SET_SCAN_REALM_CENSUS" },
+        { key = "showPlayerTooltips", lbl = "SET_SHOW_PLAYER_TT" },
+        { key = "showProgressToast", lbl = "SET_SHOW_PROG_TOAST" },
         { key = "showMinimap",       lbl = "SET_SHOW_MINIMAP" },
         { key = "showCharPaneButton", lbl = "SET_SHOW_CHAR_BTN" },
     }
     for idx, opt in ipairs(setOptions) do
         local cb = CreateFrame("CheckButton", nil, setPanel, "UICheckButtonTemplate")
         cb:SetSize(26, 26)
-        cb:SetPoint("TOPLEFT", setPanel, "TOPLEFT", 16, -50 - (idx - 1) * 36)
+        cb:SetPoint("TOPLEFT", setPanel, "TOPLEFT", 16, -46 - (idx - 1) * 32)
         cb.text:SetFontObject("GameFontNormal")
         cb.text:SetText(self:L(opt.lbl))
         cb.lblKey = opt.lbl
@@ -1496,6 +1507,226 @@ function addon:InitLDB()
 end
 
 -- ============================================================================
+-- КАСТОМНЫЙ ПОПАП WOWHEAD (ЗАКРЫТИЕ ПО ESC И ENTER) + ТОСТ ПРОГРЕССА ЗВАНИЯ
+-- ============================================================================
+function addon:ShowWowheadCopyPopup(title)
+    if not title then return end
+    local url = self:GetTitleWowheadURL(title)
+
+    if not ui.copyPopup then
+        local p = CreateFrame("Frame", "TitleCollectorCopyPopup", UIParent, "BackdropTemplate")
+        p:SetSize(420, 96)
+        p:SetPoint("CENTER", UIParent, "CENTER", 0, 80)
+        p:SetFrameStrata("DIALOG")
+        p:SetToplevel(true)
+        p:SetMovable(true)
+        p:EnableMouse(true)
+        p:RegisterForDrag("LeftButton")
+        ApplyBackdrop(p, 0.06, 0.06, 0.08, 0.98, 0.88, 0.70, 0.18, 1.0)
+        p:SetScript("OnDragStart", p.StartMoving)
+        p:SetScript("OnDragStop", p.StopMovingOrSizing)
+        p:Hide()
+
+        if type(UISpecialFrames) == "table" then
+            local found = false
+            for _, fn in ipairs(UISpecialFrames) do
+                if fn == "TitleCollectorCopyPopup" then found = true; break end
+            end
+            if not found then
+                tinsert(UISpecialFrames, "TitleCollectorCopyPopup")
+            end
+        end
+
+        local hdr = p:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        hdr:SetPoint("TOPLEFT", p, "TOPLEFT", 14, -12)
+        hdr:SetTextColor(1.0, 0.86, 0.22, 1.0)
+        p.hdrFS = hdr
+
+        local closeB = CreateCollectorButton(p, 22, 22, "X", false)
+        closeB:SetPoint("TOPRIGHT", p, "TOPRIGHT", -8, -8)
+        closeB:SetScript("OnClick", function() p:Hide() end)
+
+        local eb = CreateFrame("EditBox", nil, p, "BackdropTemplate")
+        eb:SetSize(392, 26)
+        eb:SetPoint("TOPLEFT", hdr, "BOTTOMLEFT", 0, -8)
+        eb:SetFontObject("ChatFontNormal")
+        eb:SetTextInsets(8, 8, 0, 0)
+        eb:SetAutoFocus(true)
+        ApplyBackdrop(eb, 0.03, 0.03, 0.04, 0.98, 0.35, 0.35, 0.42, 1.0)
+        eb:SetScript("OnEscapePressed", function() p:Hide() end)
+        eb:SetScript("OnEnterPressed", function() p:Hide() end)
+        p.editBox = eb
+
+        local hint = p:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        hint:SetPoint("BOTTOMLEFT", p, "BOTTOMLEFT", 14, 10)
+        p.hintFS = hint
+
+        ui.copyPopup = p
+    end
+
+    local p = ui.copyPopup
+    p.hdrFS:SetText(self:L("WOWHEAD_POPUP_TITLE") .. " |cffffffff" .. self:GetTitleCleanName(title) .. "|r")
+    p.hintFS:SetText(self:L("WOWHEAD_POPUP_HINT"))
+    p:Show()
+    p.editBox:SetText(url)
+    p.editBox:SetFocus()
+    p.editBox:HighlightText()
+end
+
+addon.lastKnownPctByMask = {}
+addon.lastToastTime = 0
+
+function addon:SnapshotProgressBaseline()
+    wipe(self.lastKnownPctByMask)
+    for _, t in ipairs(self.Titles) do
+        local isCol = self:IsTitleCollected(t.maskID)
+        if isCol then
+            self.lastKnownPctByMask[t.maskID] = 100.0
+        elseif t.obtainable then
+            local prog = self:EvaluateTitleProgress(t)
+            self.lastKnownPctByMask[t.maskID] = prog and prog.pct or 0.0
+        end
+    end
+    self.baselineReady = true
+end
+
+function addon:EnsureProgressToastFrame()
+    if self.toastFrame then return self.toastFrame end
+
+    local f = CreateFrame("Button", "TitleCollectorToastFrame", UIParent, "BackdropTemplate")
+    f:SetSize(446, 82)
+    f:SetPoint("TOP", UIParent, "TOP", 0, -130)
+    f:SetFrameStrata("HIGH")
+    f:SetToplevel(true)
+    f:SetMovable(true)
+    f:EnableMouse(true)
+    f:RegisterForDrag("LeftButton")
+    f:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+    ApplyBackdrop(f, 0.06, 0.05, 0.04, 0.96, 1.0, 0.78, 0.16, 1.0)
+    f:SetScript("OnDragStart", f.StartMoving)
+    f:SetScript("OnDragStop", f.StopMovingOrSizing)
+    f:Hide()
+
+    local iconBox = CreateFrame("Frame", nil, f, "BackdropTemplate")
+    iconBox:SetSize(52, 52)
+    iconBox:SetPoint("LEFT", f, "LEFT", 14, 0)
+    ApplyBackdrop(iconBox, 0, 0, 0, 1, 1.0, 0.78, 0.16, 1.0)
+
+    local iconTex = iconBox:CreateTexture(nil, "ARTWORK")
+    iconTex:SetPoint("TOPLEFT", 1, -1)
+    iconTex:SetPoint("BOTTOMRIGHT", -1, 1)
+    iconTex:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+    iconTex:SetTexture("Interface\\ICONS\\INV_Crown_01")
+    f.iconTex = iconTex
+
+    local headerFS = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    headerFS:SetPoint("TOPLEFT", iconBox, "TOPRIGHT", 12, -2)
+    headerFS:SetPoint("RIGHT", f, "RIGHT", -28, 0)
+    headerFS:SetJustifyH("LEFT")
+    headerFS:SetTextColor(1.0, 0.82, 0.18, 1.0)
+    f.headerFS = headerFS
+
+    local nameFS = f:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+    nameFS:SetPoint("TOPLEFT", headerFS, "BOTTOMLEFT", 0, -4)
+    nameFS:SetPoint("RIGHT", f, "RIGHT", -28, 0)
+    nameFS:SetJustifyH("LEFT")
+    nameFS:SetWordWrap(false)
+    nameFS:SetTextColor(0.20, 1.0, 0.60, 1.0)
+    f.nameFS = nameFS
+
+    local subFS = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    subFS:SetPoint("TOPLEFT", nameFS, "BOTTOMLEFT", 0, -4)
+    subFS:SetPoint("RIGHT", f, "RIGHT", -14, 0)
+    subFS:SetJustifyH("LEFT")
+    f.subFS = subFS
+
+    local closeBtn = CreateCollectorButton(f, 20, 20, "X", false)
+    closeBtn:SetPoint("TOPRIGHT", f, "TOPRIGHT", -6, -6)
+    closeBtn:SetScript("OnClick", function() f:Hide() end)
+
+    f:SetScript("OnClick", function(frame, button)
+        if button == "RightButton" then
+            frame:Hide()
+            return
+        end
+        if frame.title then
+            ui.selectedTitle = frame.title
+            local mf = addon:EnsureMainWindow()
+            mf:Show()
+            addon:RefreshUI()
+            frame:Hide()
+        end
+    end)
+
+    self.toastFrame = f
+    return f
+end
+
+function addon:TriggerProgressToast(title, prog, isUnlocked, forceTest)
+    if not title then return end
+    if not forceTest and (not self.db or not self.db.settings or not self.db.settings.showProgressToast) then
+        return
+    end
+    local now = GetTime and GetTime() or 0
+    if not forceTest and (now - (self.lastToastTime or 0)) < 8.0 then
+        return
+    end
+    self.lastToastTime = now
+
+    local f = self:EnsureProgressToastFrame()
+    f.title = title
+    f.iconTex:SetTexture(title.icon or "Interface\\ICONS\\INV_Crown_01")
+    f.headerFS:SetText("|TInterface\\ICONS\\INV_Crown_01:13:13:0:0|t TitleCollector — " .. (isUnlocked and self:L("TOAST_HEADER_UNLOCKED") or self:L("TOAST_HEADER_PROGRESS")))
+    f.nameFS:SetText(self:GetTitleCleanName(title))
+
+    if isUnlocked then
+        f.subFS:SetText(self:L("TOAST_SUB_UNLOCKED"))
+    else
+        local pct = prog and prog.pct or 85
+        local doneC = prog and prog.doneCount or 4
+        local totC = prog and prog.totalCount or 5
+        f.subFS:SetText(self:L("TOAST_SUB_PROGRESS_FMT", pct, doneC, totC))
+    end
+
+    f:Show()
+    if PlaySound then
+        pcall(PlaySound, 8959, "Master")
+    end
+
+    f.toastToken = (f.toastToken or 0) + 1
+    local myToken = f.toastToken
+    C_Timer.After(14.0, function()
+        if f.toastToken == myToken and f:IsShown() then
+            f:Hide()
+        end
+    end)
+end
+
+function addon:CheckProgressDeltasAndToast()
+    if not self.baselineReady then return end
+    if not self.db or not self.db.settings or not self.db.settings.showProgressToast then return end
+
+    for _, t in ipairs(self.Titles) do
+        local oldPct = self.lastKnownPctByMask[t.maskID] or 0.0
+        local isCol = self:IsTitleCollected(t.maskID)
+        if isCol and oldPct < 100.0 then
+            self.lastKnownPctByMask[t.maskID] = 100.0
+            local prog = self:EvaluateTitleProgress(t)
+            self:TriggerProgressToast(t, prog, true, false)
+            return
+        elseif not isCol and t.obtainable then
+            local prog = self:EvaluateTitleProgress(t)
+            local newPct = prog and prog.pct or 0.0
+            self.lastKnownPctByMask[t.maskID] = newPct
+            if newPct > (oldPct + 0.5) and (newPct >= 70.0 or self:IsTitleTracked(t) or self:IsTitleFavorite(t.maskID)) then
+                self:TriggerProgressToast(t, prog, false, false)
+                return
+            end
+        end
+    end
+end
+
+-- ============================================================================
 -- СЛЭШ-КОМАНДЫ И ГЛАВНЫЙ ОБРАБОТЧИК СОБЫТИЙ
 -- ============================================================================
 SLASH_TITLECOLLECTOR1 = "/tc"
@@ -1508,6 +1739,12 @@ SlashCmdList["TITLECOLLECTOR"] = function(msg)
         addon:RefreshUI()
     elseif cmd == "fav" or cmd == "random" then
         addon:EquipRandomFavorite(false)
+    elseif cmd == "testalert" or cmd == "toast" then
+        local sample = ui.selectedTitle or addon.Titles[1]
+        if sample then
+            local prog = addon:EvaluateTitleProgress(sample)
+            addon:TriggerProgressToast(sample, prog, false, true)
+        end
     elseif cmd == "minimap" or cmd == "mm" then
         addon.db.minimap.hide = not addon.db.minimap.hide
         addon:SetupRoundMinimapButton()
@@ -1537,11 +1774,13 @@ eventFrame:SetScript("OnEvent", function(_, event, arg1)
     if event == "ADDON_LOADED" and arg1 == addonName then
         addon:InitDB()
         addon:BuildTitleIndex()
+        addon:InitPlayerTooltips()
         addon:InitLDB()
     elseif event == "PLAYER_ENTERING_WORLD" then
         C_Timer.After(0.8, function()
             addon:BuildTitleIndex()
             addon:InvalidateProgressCache()
+            addon:SnapshotProgressBaseline()
             addon:SetupRoundMinimapButton()
             addon:HookCharacterTitlesPane()
             addon:CheckPortalRouteProgress()
@@ -1549,11 +1788,13 @@ eventFrame:SetScript("OnEvent", function(_, event, arg1)
         end)
     elseif event == "KNOWN_TITLES_UPDATE" or (event == "UNIT_NAME_UPDATE" and arg1 == "player") then
         addon:InvalidateProgressCache()
+        addon:CheckProgressDeltasAndToast()
         if ui.mainFrame and ui.mainFrame:IsShown() then
             addon:RefreshUI()
         end
     elseif event == "ACHIEVEMENT_EARNED" or event == "CRITERIA_UPDATE" or event == "QUEST_TURNED_IN" or event == "UPDATE_FACTION" or event == "MAJOR_FACTION_RENOWN_LEVEL_CHANGED" then
         addon:InvalidateProgressCache()
+        addon:CheckProgressDeltasAndToast()
         if ui.mainFrame and ui.mainFrame:IsShown() then
             addon:RefreshUI()
         end

@@ -377,30 +377,3 @@ function addon:GetTitleWowheadURL(title)
     end
     return base .. "titles"
 end
-
-function addon:ShowWowheadCopyPopup(title)
-    local url = self:GetTitleWowheadURL(title)
-    if not StaticPopupDialogs["TITLECOLLECTOR_WOWHEAD_URL"] then
-        StaticPopupDialogs["TITLECOLLECTOR_WOWHEAD_URL"] = {
-            text = "Wowhead URL (Ctrl+C):",
-            button1 = OKAY or "OK",
-            hasEditBox = true,
-            editBoxWidth = 320,
-            OnShow = function(self, data)
-                local eb = self.editBox or self.GetEditBox and self:GetEditBox()
-                if eb then
-                    eb:SetText(data or "")
-                    eb:SetFocus()
-                    eb:HighlightText()
-                end
-            end,
-            EditBoxOnEscapePressed = function(self)
-                self:GetParent():Hide()
-            end,
-            timeout = 0,
-            whileDead = true,
-            hideOnEscape = true,
-        }
-    end
-    StaticPopup_Show("TITLECOLLECTOR_WOWHEAD_URL", nil, nil, url)
-end

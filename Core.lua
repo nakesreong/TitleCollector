@@ -123,6 +123,8 @@ function addon:InitDB()
         showGlobalRarity = true,
         showServerRarity = true,
         scanRealmTitles = true,
+        showPlayerTooltips = true,
+        showProgressToast = true,
         showCharPaneButton = true,
         enableAutoTitle = false, -- Отключаемая опция по запросу Ани!
         onlyMissingCriteria = false,
@@ -447,30 +449,38 @@ function addon:GetServerRarityInfo(titleOrMaskID)
     return displayRealm, realmPop, estOwners, seenCount, globalPct
 end
 
--- Пассивный сканер званий на игроках вокруг (Realm Census)
-function addon:ScanUnitTitle(unit)
-    if not self.db or not self.db.settings or not self.db.settings.scanRealmTitles then return end
-    if InCombatLockdown and InCombatLockdown() then return end
-    if not unit or not SafeNotSecret(unit) then return end
-    if not UnitExists or not UnitExists(unit) or not UnitIsPlayer(unit) then return end
+-- Извлекает объект звания, надетого на указанного юнита-игрока
+function addon:ExtractUnitTitle(unit)
+    if not unit or not SafeNotSecret(unit) then return nil, nil, nil end
+    if not UnitExists or not UnitExists(unit) or not UnitIsPlayer(unit) then return nil, nil, nil end
 
     local uName, uRealm = UnitName(unit)
     local pvpName = UnitPVPName and UnitPVPName(unit)
-    if not SafeNotSecret(uName) or not SafeNotSecret(pvpName) then return end
-    if type(uName) ~= "string" or type(pvpName) ~= "string" or uName == "" or pvpName == "" then return end
-    if pvpName == uName then return end
+    if not SafeNotSecret(uName) or not SafeNotSecret(pvpName) then return nil, nil, nil end
+    if type(uName) ~= "string" or type(pvpName) ~= "string" or uName == "" or pvpName == "" then return nil, nil, nil end
+    if pvpName == uName then return nil, nil, nil end
 
-    -- Вырезаем имя персонажа из строки UnitPVPName, чтобы получить чистое звание
     local sIdx, eIdx = string.find(pvpName, uName, 1, true)
-    if not sIdx then return end
+    if not sIdx then return nil, nil, nil end
     local before = string.sub(pvpName, 1, sIdx - 1)
     local after = string.sub(pvpName, eIdx + 1)
     local extracted = (before ~= "" and before) or after
     local norm = NormalizeCleanTitle(extracted)
-    if norm == "" then return end
+    if norm == "" then return nil, nil, nil end
 
     local maskID = self.TitleByCleanText[norm]
-    if not maskID then return end
+    if not maskID then return nil, nil, nil end
+    return self.TitleByMaskID[maskID], uName, uRealm
+end
+
+-- Пассивный сканер званий на игроках вокруг (Realm Census)
+function addon:ScanUnitTitle(unit)
+    if not self.db or not self.db.settings or not self.db.settings.scanRealmTitles then return end
+    if InCombatLockdown and InCombatLockdown() then return end
+
+    local titleObj, uName, uRealm = self:ExtractUnitTitle(unit)
+    if not titleObj or not uName then return end
+    local maskID = titleObj.maskID
 
     local realm = (SafeNotSecret(uRealm) and uRealm and uRealm ~= "") and uRealm or (GetRealmName() or "Realm")
     self.db.realmCensus[realm] = self.db.realmCensus[realm] or {}
@@ -485,4 +495,63 @@ function addon:ScanUnitTitle(unit)
     else
         entry.players[uName] = time()
     end
+end
+
+-- Интеграция в тултип игроков в мире (показывает редкость, источник и ваш прогресс по званию игрока)
+function addon:InitPlayerTooltips()
+    if self.playerTooltipsHooked then return end
+    if not _G.TooltipDataProcessor or not _G.Enum or not _G.Enum.TooltipDataType then return end
+    self.playerTooltipsHooked = true
+
+    TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Unit, function(tooltip)
+        if tooltip ~= GameTooltip then return end
+        if not self.db or not self.db.settings or not self.db.settings.showPlayerTooltips then return end
+        if InCombatLockdown and InCombatLockdown() then return end
+
+        local okU, _, unit = pcall(tooltip.GetUnit, tooltip)
+        unit = (okU and SafeNotSecret(unit) and unit) or "mouseover"
+        local titleObj = self:ExtractUnitTitle(unit)
+        if not titleObj then return end
+
+        -- Защита от дублирования строк
+        for i = 1, tooltip:NumLines() do
+            local leftLine = _G[tooltip:GetName() .. "TextLeft" .. i]
+            local txt = leftLine and leftLine:GetText()
+            if SafeNotSecret(txt) and type(txt) == "string" and string.find(txt, "TitleCollector", 1, true) then
+                return
+            end
+        end
+
+        local cleanName = self:GetTitleCleanName(titleObj)
+        local expInfo = self.ExpansionNames[titleObj.exp or 1] or self.ExpansionNames[1]
+        local expName = self:IsEnglish() and expInfo.en or expInfo.ru
+
+        tooltip:AddLine(" ")
+        tooltip:AddDoubleLine(
+            self:L("TT_PLAYER_TITLE_HDR") .. " |cffffd100" .. cleanName .. "|r",
+            expInfo.color .. expName .. "|r"
+        )
+
+        if self.db.settings.showGlobalRarity then
+            local gPct = self:GetGlobalRarity(titleObj)
+            local pctText, tierLabel = self:FormatRarityTier(gPct)
+            tooltip:AddLine(self:L("TT_RARITY_FMT", pctText, tierLabel), 0.9, 0.9, 0.9, true)
+        end
+
+        local srcName = (self:IsEnglish() and titleObj.achName_en or titleObj.achName_ru)
+            or (self:IsEnglish() and titleObj.questName_en or titleObj.questName_ru)
+            or titleObj.cat
+        if srcName and srcName ~= "" then
+            tooltip:AddLine(self:L("TT_SOURCE_FMT", srcName), 0.85, 0.88, 0.95, true)
+        end
+
+        if self:IsTitleCollected(titleObj.maskID) then
+            tooltip:AddLine(self:L("TT_COLLECTED_YES"))
+        else
+            local prog = self:EvaluateTitleProgress(titleObj)
+            local pct = prog and prog.pct or 0
+            tooltip:AddLine(self:L("TT_COLLECTED_NO_FMT", pct))
+        end
+        tooltip:Show()
+    end)
 end
