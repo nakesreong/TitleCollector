@@ -249,7 +249,11 @@ function addon:RebuildFilteredTitles()
         local progA = self:EvaluateTitleProgress(a)
         local progB = self:EvaluateTitleProgress(b)
 
-        if ui.currentTab == "ALMOST" or ui.sortBy == "PROGRESS" then
+        if ui.currentTab == "COLLECTED" and (ui.sortBy == "RARITY" or ui.sortBy == "PROGRESS") then
+            local rA = a.rarity or 999
+            local rB = b.rarity or 999
+            if math.abs(rA - rB) > 0.0001 then return rA < rB end
+        elseif ui.currentTab == "ALMOST" or ui.sortBy == "PROGRESS" then
             local pctA = progA and progA.pct or 0
             local pctB = progB and progB.pct or 0
             if math.abs(pctA - pctB) > 0.05 then
@@ -261,7 +265,7 @@ function addon:RebuildFilteredTitles()
         elseif ui.sortBy == "RARITY" then
             local rA = a.rarity or 999
             local rB = b.rarity or 999
-            if math.abs(rA - rB) > 0.01 then return rA < rB end
+            if math.abs(rA - rB) > 0.0001 then return rA < rB end
         elseif ui.sortBy == "EXP" then
             if (a.exp or 0) ~= (b.exp or 0) then
                 return (a.exp or 0) > (b.exp or 0)
@@ -485,7 +489,12 @@ function addon:RefreshListRows()
             row.progBar:SetValue(pct)
             if isCol then
                 row.progBar:SetStatusBarColor(0.15, 0.78, 0.35, 0.90)
-                row.progFS:SetText("✓ 100%")
+                if (ui.currentTab == "COLLECTED" or ui.sortBy == "RARITY") and type(t.rarity) == "number" then
+                    local rText = self:FormatRarityTier(t.rarity)
+                    row.progFS:SetText("|TInterface\\RaidFrame\\ReadyCheck-Ready:11:11:0:0|t " .. rText)
+                else
+                    row.progFS:SetText("|TInterface\\RaidFrame\\ReadyCheck-Ready:11:11:0:0|t 100%")
+                end
             elseif pct >= 70 then
                 row.progBar:SetStatusBarColor(0.18, 0.70, 0.95, 0.90)
                 row.progFS:SetText(string.format("%.0f%%", pct))
@@ -704,6 +713,15 @@ function addon:EnsureMainWindow()
         tb:SetScript("OnClick", function()
             ui.currentTab = td.id
             ui.scrollOffset = 0
+            if td.id == "COLLECTED" then
+                ui.sortBy = "RARITY"
+                if ui.sortBtn then ui.sortBtn:SetText(addon:L("SORT_RARITY")) end
+                ui.selectedTitle = nil
+            elseif td.id == "ALMOST" then
+                ui.sortBy = "PROGRESS"
+                if ui.sortBtn then ui.sortBtn:SetText(addon:L("SORT_PROGRESS")) end
+                ui.selectedTitle = nil
+            end
             addon:RefreshUI()
         end)
         ui.tabButtons[td.id] = tb
