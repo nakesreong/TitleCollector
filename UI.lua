@@ -212,10 +212,13 @@ function addon:RebuildFilteredTitles()
         if pass and ui.filterDiff ~= "ALL" and t.difficulty ~= ui.filterDiff then
             pass = false
         end
-        if pass and ui.filterAffix == "PREFIX" and not t.isPrefix then
-            pass = false
-        elseif pass and ui.filterAffix == "SUFFIX" and t.isPrefix then
-            pass = false
+        if pass and ui.filterAffix ~= "ALL" then
+            local isPref = self:IsTitlePrefix(t, ui.previewFemale)
+            if ui.filterAffix == "PREFIX" and not isPref then
+                pass = false
+            elseif ui.filterAffix == "SUFFIX" and isPref then
+                pass = false
+            end
         end
 
         -- Текстовый поиск (RU + EN название, ачивка, зона, подсказка)
@@ -308,12 +311,13 @@ function addon:RefreshInspector()
     local expName = self:IsEnglish() and expInfo.en or expInfo.ru
     local diffMeta = DIFF_META[t.difficulty or "SOLO_GRIND"] or DIFF_META.SOLO_GRIND
 
+    local isPref = self:IsTitlePrefix(t, ui.previewFemale)
     insp.iconTex:SetTexture(t.icon or "Interface\\ICONS\\INV_Crown_01")
     insp.titleFS:SetText((isCol and "|cff00ff96" or "|cffffd100") .. cleanName .. "|r")
     insp.subMetaFS:SetText(string.format(
         "%s%s|r • |cff88ccff%s|r • %s%s|r",
         expInfo.color, expName,
-        t.isPrefix and self:L("INSP_AFFIX_PREFIX") or self:L("INSP_AFFIX_SUFFIX"),
+        isPref and self:L("INSP_AFFIX_PREFIX") or self:L("INSP_AFFIX_SUFFIX"),
         diffMeta.color, self:L(diffMeta.key)
     ))
 
@@ -381,15 +385,23 @@ function addon:RefreshInspector()
             table.insert(displayCriteria, c)
         end
     end
+    insp.totalCritCount = #displayCriteria
+    local maxCritOffset = math.max(0, #displayCriteria - #ui.critRows)
+    local critOffset = math.max(0, math.min(ui.critScrollOffset or 0, maxCritOffset))
+    ui.critScrollOffset = critOffset
 
     for idx, cRow in ipairs(ui.critRows) do
-        local item = displayCriteria[idx]
+        local item = displayCriteria[critOffset + idx]
         if item then
             cRow.item = item
-            local mark = item.completed
-                and "|TInterface\\RaidFrame\\ReadyCheck-Ready:13:13:0:0|t |cff66dd88"
-                or "|TInterface\\RaidFrame\\ReadyCheck-NotReady:13:13:0:0|t |cffeeeeee"
-            cRow.textFS:SetText(mark .. item.text .. "|r")
+            if item.isSubStep then
+                cRow.textFS:SetText("     |cff88ccff•|r |cffcccccc" .. item.text .. "|r")
+            else
+                local mark = item.completed
+                    and "|TInterface\\RaidFrame\\ReadyCheck-Ready:13:13:0:0|t |cff66dd88"
+                    or "|TInterface\\RaidFrame\\ReadyCheck-NotReady:13:13:0:0|t |cffeeeeee"
+                cRow.textFS:SetText(mark .. item.text .. "|r")
+            end
             cRow:Show()
         else
             cRow.item = nil
@@ -488,11 +500,34 @@ function addon:RefreshListRows()
             local pct = prog and prog.pct or 0
             row.progBar:SetValue(pct)
             if isCol then
-                row.progBar:SetStatusBarColor(0.15, 0.78, 0.35, 0.90)
                 if (ui.currentTab == "COLLECTED" or ui.sortBy == "RARITY") and type(t.rarity) == "number" then
-                    local rText = self:FormatRarityTier(t.rarity)
-                    row.progFS:SetText("|TInterface\\RaidFrame\\ReadyCheck-Ready:11:11:0:0|t " .. rText)
+                    local r = t.rarity
+                    local fmtStr
+                    if r < 0.05 then
+                        row.progBar:SetStatusBarColor(0.90, 0.48, 0.08, 0.92)
+                        fmtStr = string.format("%.3f%%", r)
+                    elseif r < 1.0 then
+                        row.progBar:SetStatusBarColor(0.90, 0.48, 0.08, 0.92)
+                        fmtStr = string.format("%.2f%%", r)
+                    elseif r < 3.0 then
+                        row.progBar:SetStatusBarColor(0.86, 0.30, 0.12, 0.92)
+                        fmtStr = string.format("%.2f%%", r)
+                    elseif r < 10.0 then
+                        row.progBar:SetStatusBarColor(0.56, 0.22, 0.84, 0.92)
+                        fmtStr = string.format("%.1f%%", r)
+                    elseif r < 25.0 then
+                        row.progBar:SetStatusBarColor(0.10, 0.44, 0.85, 0.92)
+                        fmtStr = string.format("%.1f%%", r)
+                    elseif r < 50.0 then
+                        row.progBar:SetStatusBarColor(0.15, 0.72, 0.32, 0.92)
+                        fmtStr = string.format("%.1f%%", r)
+                    else
+                        row.progBar:SetStatusBarColor(0.36, 0.40, 0.46, 0.92)
+                        fmtStr = string.format("%.1f%%", r)
+                    end
+                    row.progFS:SetText("|TInterface\\RaidFrame\\ReadyCheck-Ready:11:11:0:0|t |cffffffff" .. fmtStr .. "|r")
                 else
+                    row.progBar:SetStatusBarColor(0.15, 0.78, 0.35, 0.90)
                     row.progFS:SetText("|TInterface\\RaidFrame\\ReadyCheck-Ready:11:11:0:0|t 100%")
                 end
             elseif pct >= 70 then
@@ -941,6 +976,7 @@ function addon:EnsureMainWindow()
         row:SetScript("OnClick", function(selfRow, button)
             if not selfRow.title then return end
             ui.selectedTitle = selfRow.title
+            ui.critScrollOffset = 0
             if button == "RightButton" and addon:IsTitleCollected(selfRow.title.maskID) then
                 addon:EquipTitle(selfRow.title.maskID, false)
             end
@@ -1262,12 +1298,22 @@ function addon:EnsureMainWindow()
     critBox:SetPoint("TOPRIGHT", progBar, "BOTTOMRIGHT", 0, -6)
     critBox:SetHeight(158)
     ApplyBackdrop(critBox, 0.04, 0.04, 0.05, 0.95, 0.20, 0.20, 0.24, 1.0)
+    critBox:EnableMouseWheel(true)
+    local function OnCritWheel(_, delta)
+        local tot = insp.totalCritCount or 0
+        local maxOff = math.max(0, tot - 8)
+        ui.critScrollOffset = math.max(0, math.min((ui.critScrollOffset or 0) - delta * 2, maxOff))
+        addon:RefreshInspector()
+    end
+    critBox:SetScript("OnMouseWheel", OnCritWheel)
 
     for i = 1, 8 do
         local cRow = CreateFrame("Button", nil, critBox)
         cRow:SetHeight(18)
         cRow:SetPoint("TOPLEFT", critBox, "TOPLEFT", 6, -4 - (i - 1) * 19)
         cRow:SetPoint("TOPRIGHT", critBox, "TOPRIGHT", -6, -4 - (i - 1) * 19)
+        cRow:EnableMouseWheel(true)
+        cRow:SetScript("OnMouseWheel", OnCritWheel)
         local cFS = cRow:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
         cFS:SetAllPoints()
         cFS:SetJustifyH("LEFT")

@@ -17,32 +17,53 @@ function addon:InvalidateProgressCache()
     wipe(self.ProgressCache)
 end
 
--- Оценка прогресса под-достижения (1 уровень вглубь для Мета-ачивок)
+-- Исправление официальных опечаток локализации Blizzard в названиях под-достижений (ruRU)
+local SUB_ACH_NAME_FIXES_RU = {
+    [40086] = "Турне чемпиона: Каз Алгар", -- В клиенте Blizzard ошибочно скопировано «Турне чемпиона: Драконьи острова»
+}
+
+-- Оценка прогресса под-достижения (1 уровень вглубь для Мета-ачивок) + сбор незакрытых под-шагов
 local function EvaluateSubAchievementFraction(subAchID)
     if not subAchID or subAchID <= 0 or not _G.GetAchievementInfo then
-        return 0, 0, 0
+        return 0, 0, 0, nil
     end
     local ok, _, _, _, completed = pcall(GetAchievementInfo, subAchID)
-    if not ok then return 0, 0, 0 end
-    if completed then return 1.0, 1, 1 end
+    if not ok then return 0, 0, 0, nil end
+    if completed then return 1.0, 1, 1, nil end
 
     local okNum, numCrit = pcall(GetAchievementNumCriteria, subAchID)
     if not okNum or not numCrit or numCrit <= 0 then
-        return 0, 0, 1
+        return 0, 0, 1, nil
     end
 
     local doneWeight = 0
+    local subSteps = {}
     for i = 1, numCrit do
-        local okC, _, _, critCompleted, qty, reqQty = pcall(GetAchievementCriteriaInfo, subAchID, i)
+        local okC, cStr, _, critCompleted, qty, reqQty = pcall(GetAchievementCriteriaInfo, subAchID, i)
         if okC then
             if critCompleted then
                 doneWeight = doneWeight + 1.0
-            elseif type(qty) == "number" and type(reqQty) == "number" and reqQty > 1 and qty > 0 then
-                doneWeight = doneWeight + math.min(0.99, qty / reqQty)
+            else
+                if type(qty) == "number" and type(reqQty) == "number" and reqQty > 1 and qty > 0 then
+                    doneWeight = doneWeight + math.min(0.99, qty / reqQty)
+                end
+                local cleanSub = (SafeNotSecret(cStr) and type(cStr) == "string" and cStr ~= "") and cStr or nil
+                if cleanSub then
+                    local qSuffix = (type(qty) == "number" and type(reqQty) == "number" and reqQty > 1)
+                        and string.format(" |cff88ccff(%d/%d)|r", qty, reqQty)
+                        or ""
+                    table.insert(subSteps, {
+                        text = cleanSub .. qSuffix,
+                        rawText = cleanSub,
+                        completed = false,
+                        isSubStep = true,
+                        subAchID = subAchID,
+                    })
+                end
             end
         end
     end
-    return doneWeight / numCrit, math.floor(doneWeight + 0.001), numCrit
+    return doneWeight / numCrit, math.floor(doneWeight + 0.001), numCrit, subSteps
 end
 
 -- Оценка прогресса фракции (Renown / MajorFaction или классическая репутация)
@@ -136,6 +157,9 @@ function addon:EvaluateTitleProgress(title, forceRefresh)
                                 cText = subName
                             end
                         end
+                        if subAchID and SUB_ACH_NAME_FIXES_RU[subAchID] and not self:IsEnglish() then
+                            cText = SUB_ACH_NAME_FIXES_RU[subAchID]
+                        end
                         -- Если у ачивки 1 скрытый критерий без текста, а у звания уже задана factionID, не дублируем пустой "Step #1"
                         if not cText and numCrit == 1 and title.factionID and title.factionID > 0 then
                             cText = nil
@@ -151,15 +175,17 @@ function addon:EvaluateTitleProgress(title, forceRefresh)
 
                             local itemPct = 0
                             local progressSuffix = nil
+                            local childSteps = nil
                             if critCompleted or achCompleted or isCollected then
                                 critCompleted = true
                                 doneCount = doneCount + 1
                                 earnedWeight = earnedWeight + 1.0
                                 itemPct = 100.0
                             elseif subAchID then
-                                local subFrac, subDone, subTot = EvaluateSubAchievementFraction(subAchID)
+                                local subFrac, subDone, subTot, subSteps = EvaluateSubAchievementFraction(subAchID)
                                 earnedWeight = earnedWeight + subFrac
                                 itemPct = subFrac * 100.0
+                                childSteps = subSteps
                                 if subTot > 1 then
                                     progressSuffix = string.format("[%d/%d]", subDone, subTot)
                                 end
@@ -182,6 +208,11 @@ function addon:EvaluateTitleProgress(title, forceRefresh)
                                 reqQuantity = reqQty,
                                 subAchID = subAchID,
                             })
+                            if childSteps and #childSteps > 0 then
+                                for _, cs in ipairs(childSteps) do
+                                    table.insert(criteria, cs)
+                                end
+                            end
                         end
                     end
                 end

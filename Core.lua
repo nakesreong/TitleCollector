@@ -277,6 +277,24 @@ function addon:GetTitleCleanName(title, useFemale)
     return (s ~= "" and s) or title.clean_ru or title.clean_en or ("Title #" .. tostring(title.maskID))
 end
 
+function addon:IsTitlePrefix(title, useFemale)
+    if not title then return true end
+    if useFemale == nil then
+        useFemale = self:IsPlayerFemale()
+    end
+    local isEN = self:IsEnglish()
+    local pat = isEN
+        and (useFemale and title.nameF_en or title.nameM_en)
+        or (useFemale and title.nameF_ru or title.nameM_ru)
+    if pat and type(pat) == "string" then
+        local idx = string.find(pat, "%%s", 1, true)
+        if idx then
+            return idx > (#pat / 2)
+        end
+    end
+    return title.isPrefix == true
+end
+
 function addon:FormatTitleWithPlayerName(title, playerName, useFemale)
     if not title then return playerName or "" end
     playerName = playerName or UnitName("player") or "Герой"
@@ -291,7 +309,7 @@ function addon:FormatTitleWithPlayerName(title, playerName, useFemale)
         return (string.gsub(pat, "%%s", playerName))
     end
     local clean = self:GetTitleCleanName(title, useFemale)
-    if title.isPrefix then
+    if self:IsTitlePrefix(title, useFemale) then
         return clean .. " " .. playerName
     else
         return playerName .. ", " .. clean
