@@ -1,0 +1,14 @@
+package-as: TitleCollector
+enable-nolib-creation: no
+
+ignore:
+  - .github
+  - .gitignore
+  - tools
+  - Screenshots
+  - logo.png
+  - logo_400x400.png
+  - logo.jpg
+  - README.md
+  - DOCS_DATABASE_PIPELINE.md
+  - TitleCollector_v1.0.0_CurseForge.zip
