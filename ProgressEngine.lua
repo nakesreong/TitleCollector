@@ -19,7 +19,8 @@ end
 
 -- Исправление официальных опечаток локализации Blizzard в названиях под-достижений (ruRU)
 local SUB_ACH_NAME_FIXES_RU = {
-    [40086] = "Турне чемпиона: Каз Алгар", -- В клиенте Blizzard ошибочно скопировано «Турне чемпиона: Драконьи острова»
+    [40086] = "Турне чемпиона: Каз Алгар",
+    [40088] = "Турне чемпиона: Каз Алгар", -- В клиенте Blizzard для #40097 ошибочно скопировано «Турне чемпиона: Драконьи острова»
 }
 
 -- Оценка прогресса под-достижения (1 уровень вглубь для Мета-ачивок) + сбор незакрытых под-шагов
@@ -49,9 +50,13 @@ local function EvaluateSubAchievementFraction(subAchID)
                 end
                 local cleanSub = (SafeNotSecret(cStr) and type(cStr) == "string" and cStr ~= "") and cStr or nil
                 if cleanSub then
-                    local qSuffix = (type(qty) == "number" and type(reqQty) == "number" and reqQty > 1)
-                        and string.format(" |cff88ccff(%d/%d)|r", qty, reqQty)
-                        or ""
+                    local hasInlineCounter = string.find(cleanSub, "%d+%s*/%s*%d+") ~= nil
+                    local qSuffix = ""
+                    if not hasInlineCounter and type(qty) == "number" and type(reqQty) == "number" and reqQty > 1 then
+                        qSuffix = string.format(" |cff88ccff(%d/%d)|r", qty, reqQty)
+                    elseif hasInlineCounter then
+                        cleanSub = string.gsub(cleanSub, "^(%d+%s*/%s*%d+)%s+", "|cff88ccff[%1]|r ")
+                    end
                     table.insert(subSteps, {
                         text = cleanSub .. qSuffix,
                         rawText = cleanSub,
@@ -159,6 +164,8 @@ function addon:EvaluateTitleProgress(title, forceRefresh)
                         end
                         if subAchID and SUB_ACH_NAME_FIXES_RU[subAchID] and not self:IsEnglish() then
                             cText = SUB_ACH_NAME_FIXES_RU[subAchID]
+                        elseif cText and (title.exp or 0) >= 11 and string.find(cText, "Турне чемпиона: Драконьи острова", 1, true) then
+                            cText = "Турне чемпиона: Каз Алгар"
                         end
                         -- Если у ачивки 1 скрытый критерий без текста, а у звания уже задана factionID, не дублируем пустой "Step #1"
                         if not cText and numCrit == 1 and title.factionID and title.factionID > 0 then

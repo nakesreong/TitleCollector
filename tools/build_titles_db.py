@@ -154,6 +154,83 @@ CURATED_BY_TITLE = {
         "note_ru": "Купите шляпу Понзо за 249 валунов для обмена в Пещере Заралек (Лоамм).",
         "note_en": "Purchase Ponzo's hat for 249 Barter Boulders in Loamm (Zaralek Cavern).",
     },
+    "slayer of the deeps": {
+        "achID": 40097, "mapID": 2339, "x": 59.0, "y": 69.2, "difficulty": "PVP",
+        "note_ru": "Мета-достижение открытого PvP в Каз Алгаре «Ставка Руффио» (штаб Руффио в Дорногале, 59.0, 69.2).",
+        "note_en": "Khaz Algar World PvP meta-achievement 'Ruffious's Bid' (Ruffious in Dornogal, 59.0, 69.2).",
+    },
+    "the lightbringer": {
+        "achID": 12078, "mapID": 830, "x": 56.0, "y": 67.0, "difficulty": "SOLO_FAST",
+        "note_ru": "Мета-достижение кампании Аргуса «Образцовый воин Света» (Крокуун / Пустоши Анторуса / Эредат).",
+        "note_en": "Argus campaign meta-achievement 'Paragon of Argus' (Krokuun, Antoran Wastes, Eredath).",
+    },
+    "demonslayer": {
+        "achID": 12069, "mapID": 885, "x": 54.8, "y": 62.4, "difficulty": "SOLO_FAST",
+        "note_ru": "Уничтожьте редких командиров Легиона на Аргусе (Пустоши Анторуса, Крокуун и Эредат).",
+        "note_en": "Defeat the rare Legion commanders across Argus.",
+    },
+    "stormbreaker": {
+        "achID": 8121, "mapID": 504, "x": 50.0, "y": 50.0, "difficulty": "SOLO_GRIND",
+        "note_ru": "Мета-достижение Острова Грома в Пандарии «Гроза бурь».",
+        "note_en": "Isle of Thunder meta-achievement 'Stormbreaker'.",
+    },
+    "architect": {
+        "achID": 9094, "mapID": 539, "x": 30.0, "y": 34.0, "difficulty": "SOLO_GRIND",
+        "note_ru": "Соберите и изучите чертежи всех зданий Гарнизона Дренора 3-го уровня.",
+        "note_en": "Learn all Level 3 Draenor Garrison blueprints.",
+    },
+    "expedition leader": {
+        "achID": 13134, "mapID": 1161, "x": 66.4, "y": 36.0, "difficulty": "SOLO_FAST",
+        "note_ru": "Мета-достижение Островных экспедиций Battle for Azeroth (стол экспедиций в гавани Боралуса / Дазар'алора).",
+        "note_en": "Island Expeditions meta-achievement in Battle for Azeroth (harbor expedition table).",
+    },
+    "the esteemed": {
+        "achID": 12953, "mapID": 1161, "x": 73.6, "y": 25.0, "difficulty": "SOLO_GRIND",
+        "note_ru": "Заработайте 100 превознесений с фракциями по всему Азероту.",
+        "note_en": "Earn Exalted status with 100 reputations.",
+    },
+}
+
+FACTION_COORDS = {
+    1077: (122, 48.0, 25.2),  # Shattered Sun Offensive (Isle of Quel'Danas)
+    1156: (118, 53.8, 87.0),  # The Ashen Verdict (Icecrown Citadel)
+    1337: (422, 54.4, 35.8),  # The Klaxxi (Dread Wastes)
+    2463: (1565, 63.0, 23.0), # Marasmius (Ardenweald)
+    2503: (2023, 60.4, 37.6), # Maruuk Centaur (Ohn'ahran Plains - Maruukai)
+    2507: (2022, 47.0, 82.6), # Dragonscale Expedition (The Waking Shores)
+    2510: (2112, 58.0, 35.5), # Valdrakken Accord (Valdrakken)
+    2511: (2024, 13.6, 49.4), # Iskaara Tuskarr (The Azure Span - Iskaara)
+    2553: (2025, 51.0, 56.8), # Soridormi (Thaldraszus - Tyrhold Reservoir)
+    2564: (2133, 56.0, 55.6), # Loamm Niffen (Zaralek Cavern - Loamm)
+    2574: (2200, 50.2, 61.8), # Dream Wardens (Emerald Dream - Central Encampment)
+    2590: (2339, 39.2, 24.4), # Council of Dornogal (Dornogal)
+    2594: (2214, 47.4, 32.8), # The Assembly of the Deeps (The Ringing Deeps - Gundargaz)
+    2570: (2215, 41.3, 53.0), # Hallowfall Arathi (Hallowfall - Mereldar)
+    2600: (2255, 55.3, 41.2), # The Severed Threads (Azj-Kahet - Weaver's Lair)
+    2653: (2346, 43.2, 50.8), # Cartels of Undermine (Undermine)
+    2685: (2346, 43.2, 50.8), # Gallagio Loyalty Rewards Club (Undermine)
+    2688: (2215, 41.3, 53.0), # Flame's Radiance (Hallowfall)
+    2658: (2339, 46.6, 48.2), # The K'aresh Trust
+    2736: (2339, 46.6, 48.2), # Manaforge Vandals
+    2704: (2413, 53.3, 55.5), # Hara'ti (Harandar)
+    2710: (2395, 52.5, 25.6), # Silvermoon Court (Silvermoon / Eversong)
+    2696: (2437, 45.0, 50.0), # Amani Tribe (Zul'Aman)
+    2699: (2405, 50.0, 50.0), # The Singularity (Voidstorm)
+    2772: (2437, 45.0, 50.0), # Zul'jarra's Forces (Zul'Aman)
+    2836: (2437, 45.0, 50.0), # The Labyrinth of Kindo'jan
+}
+
+EXPANSION_HUB_FALLBACKS = {
+    2:  (111, 54.0, 44.5),  # TBC -> Shattrath City
+    3:  (125, 49.5, 48.0),  # WotLK -> Dalaran (Northrend)
+    5:  (390, 80.0, 33.0),  # MoP -> Vale of Eternal Blossoms
+    6:  (539, 30.0, 34.0),  # WoD -> Shadowmoon Valley (Draenor)
+    7:  (627, 49.5, 48.0),  # Legion -> Dalaran (Broken Isles)
+    8:  (1161, 70.0, 26.0), # BfA -> Boralus
+    9:  (1670, 50.0, 50.0), # Shadowlands -> Oribos
+    10: (2112, 58.0, 35.5), # Dragonflight -> Valdrakken
+    11: (2339, 46.6, 48.2), # The War Within -> Dornogal
+    12: (2395, 52.5, 25.6), # Midnight -> Eversong / Silvermoon
 }
 
 RAID_AND_ZONE_ENTRANCES = {
@@ -706,10 +783,13 @@ def main():
 
         quest_id = curated.get("questID") or dfa_quest_id
 
-        # Resolve mapID and coordinates (Curated -> Raid/Dungeon entrance -> Zone name match)
+        # Resolve mapID and coordinates (Curated -> Faction HQ -> Raid/Dungeon entrance -> Zone name match -> Expansion Hub)
         map_id = curated.get("mapID")
         coord_x = curated.get("x")
         coord_y = curated.get("y")
+
+        if not map_id and faction_id and faction_id in FACTION_COORDS and not curated.get("noZone"):
+            map_id, coord_x, coord_y = FACTION_COORDS[faction_id]
 
         full_search_blob = f"{search_blob} {note_en} {note_ru} {dfa_drop_zone or ''} {dfa_faction_name or ''}".lower()
         if not map_id and not curated.get("noZone"):
@@ -724,6 +804,8 @@ def main():
                     if len(zname) >= 6 and re.search(rf"\b{re.escape(zname)}\b", full_search_blob):
                         map_id = mid
                         break
+            if not map_id and obtainable and cat in ("Reputation", "Quest", "Exploration", "Campaign", "Delves") and exp_num in EXPANSION_HUB_FALLBACKS:
+                map_id, coord_x, coord_y = EXPANSION_HUB_FALLBACKS[exp_num]
 
         # Determine smart difficulty tag
         difficulty = curated.get("difficulty")

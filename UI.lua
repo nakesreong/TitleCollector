@@ -114,6 +114,21 @@ local function CreateCollectorButton(parent, width, height, text, isGold)
         end
     end)
 
+    btn:SetScript("OnDisable", function(self)
+        self:SetBackdropColor(0.08, 0.08, 0.09, 0.90)
+        self:SetBackdropBorderColor(0.18, 0.18, 0.20, 0.90)
+        self.label:SetTextColor(0.42, 0.42, 0.45, 1.0)
+    end)
+    btn:SetScript("OnEnable", function(self)
+        self:SetBackdropColor(unpack(self.defaultBg))
+        self:SetBackdropBorderColor(unpack(self.defaultBorder))
+        if isGold then
+            self.label:SetTextColor(1.0, 0.86, 0.22, 1.0)
+        else
+            self.label:SetTextColor(0.92, 0.92, 0.95, 1.0)
+        end
+    end)
+
     function btn:SetText(str)
         self.label:SetText(str or "")
     end
@@ -132,6 +147,92 @@ local function CreateCollectorButton(parent, width, height, text, isGold)
     end
 
     return btn
+end
+
+-- Всплывающее меню-выпадашка в тёмно-золотом стиле для фильтров
+local dropdownFrame = nil
+local function HideCollectorDropdown()
+    if dropdownFrame and dropdownFrame:IsShown() then
+        dropdownFrame:Hide()
+        dropdownFrame.anchorBtn = nil
+    end
+end
+
+local function ToggleCollectorDropdown(anchorBtn, items, minWidth)
+    if not dropdownFrame then
+        dropdownFrame = CreateFrame("Frame", "TitleCollectorFilterDropdown", UIParent, "BackdropTemplate")
+        dropdownFrame:SetFrameStrata("TOOLTIP")
+        dropdownFrame:SetToplevel(true)
+        dropdownFrame:EnableMouse(true)
+        ApplyBackdrop(dropdownFrame, 0.06, 0.06, 0.08, 0.98, 0.80, 0.65, 0.18, 1.0)
+        dropdownFrame.rows = {}
+        dropdownFrame:Hide()
+    end
+
+    if dropdownFrame:IsShown() and dropdownFrame.anchorBtn == anchorBtn then
+        HideCollectorDropdown()
+        return
+    end
+
+    dropdownFrame.anchorBtn = anchorBtn
+    local rowH = 22
+    local pad = 6
+    local w = math.max(minWidth or 180, anchorBtn:GetWidth())
+
+    for i, item in ipairs(items) do
+        local r = dropdownFrame.rows[i]
+        if not r then
+            r = CreateFrame("Button", nil, dropdownFrame, "BackdropTemplate")
+            r:SetHeight(rowH)
+            ApplyBackdrop(r, 0.08, 0.08, 0.10, 0.0, 0, 0, 0, 0)
+            r.label = r:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+            r.label:SetPoint("LEFT", r, "LEFT", 8, 0)
+            r.label:SetPoint("RIGHT", r, "RIGHT", -8, 0)
+            r.label:SetJustifyH("LEFT")
+            r.label:SetWordWrap(false)
+            r:SetScript("OnEnter", function(selfR)
+                selfR:SetBackdropColor(0.24, 0.19, 0.08, 0.95)
+            end)
+            r:SetScript("OnLeave", function(selfR)
+                if selfR.isChecked then
+                    selfR:SetBackdropColor(0.16, 0.13, 0.05, 0.85)
+                else
+                    selfR:SetBackdropColor(0.08, 0.08, 0.10, 0.0)
+                end
+            end)
+            dropdownFrame.rows[i] = r
+        end
+
+        r:SetPoint("TOPLEFT", dropdownFrame, "TOPLEFT", pad, -pad - (i - 1) * rowH)
+        r:SetPoint("TOPRIGHT", dropdownFrame, "TOPRIGHT", -pad, -pad - (i - 1) * rowH)
+        r.isChecked = item.checked == true
+        if r.isChecked then
+            r:SetBackdropColor(0.16, 0.13, 0.05, 0.85)
+        else
+            r:SetBackdropColor(0.08, 0.08, 0.10, 0.0)
+        end
+        local mark = item.checked
+            and "|TInterface\\RaidFrame\\ReadyCheck-Ready:12:12:0:0|t "
+            or "    "
+        r.label:SetText(mark .. (item.text or ""))
+        local reqW = (r.label:GetStringWidth() or 120) + 28
+        if reqW > w then w = reqW end
+
+        r:SetScript("OnClick", function()
+            HideCollectorDropdown()
+            if item.func then item.func() end
+        end)
+        r:Show()
+    end
+
+    for i = #items + 1, #dropdownFrame.rows do
+        dropdownFrame.rows[i]:Hide()
+    end
+
+    dropdownFrame:SetSize(w, (#items * rowH) + pad * 2)
+    dropdownFrame:ClearAllPoints()
+    dropdownFrame:SetPoint("TOPLEFT", anchorBtn, "BOTTOMLEFT", 0, -2)
+    dropdownFrame:Show()
 end
 
 local function GetPlayerClassColorHex()
@@ -746,6 +847,7 @@ function addon:EnsureMainWindow()
             tb:SetPoint("LEFT", prevTab, "RIGHT", 4, 0)
         end
         tb:SetScript("OnClick", function()
+            HideCollectorDropdown()
             ui.currentTab = td.id
             ui.scrollOffset = 0
             if td.id == "COLLECTED" then
@@ -762,6 +864,7 @@ function addon:EnsureMainWindow()
         ui.tabButtons[td.id] = tb
         prevTab = tb
     end
+    f:HookScript("OnHide", HideCollectorDropdown)
 
     -- 3. Левый контейнер каталога (фильтры + список)
     local catCont = CreateFrame("Frame", nil, f, "BackdropTemplate")
@@ -790,83 +893,141 @@ function addon:EnsureMainWindow()
     end)
     ui.searchBox = searchBox
 
-    -- Циклическая кнопка Дополнения
+    -- Кнопка-выпадашка Дополнения (ЛКМ — выпадающее меню, ПКМ — сброс на Все дополнения)
     local expBtn = CreateCollectorButton(catCont, 130, 24, self:L("FILTER_EXP_ALL"), false)
     expBtn:SetPoint("LEFT", searchBox, "RIGHT", 6, 0)
     expBtn:SetScript("OnClick", function(selfBtn, button)
         if button == "RightButton" then
+            HideCollectorDropdown()
             ui.filterExp = 0
-        else
-            ui.filterExp = (ui.filterExp + 1) % 13
-        end
-        if ui.filterExp == 0 then
             selfBtn:SetText(addon:L("FILTER_EXP_ALL"))
-        else
-            local eInfo = addon.ExpansionNames[ui.filterExp]
-            selfBtn:SetText(eInfo and (addon:IsEnglish() and eInfo.en or eInfo.ru) or ("Exp " .. ui.filterExp))
+            ui.scrollOffset = 0
+            addon:RefreshUI()
+            return
         end
-        ui.scrollOffset = 0
-        addon:RefreshUI()
+        local items = {
+            {
+                text = addon:L("FILTER_EXP_ALL"),
+                checked = (ui.filterExp == 0),
+                func = function()
+                    ui.filterExp = 0
+                    selfBtn:SetText(addon:L("FILTER_EXP_ALL"))
+                    ui.scrollOffset = 0
+                    addon:RefreshUI()
+                end,
+            },
+        }
+        for expID = 12, 1, -1 do
+            local eInfo = addon.ExpansionNames[expID]
+            if eInfo then
+                local eName = addon:IsEnglish() and eInfo.en or eInfo.ru
+                table.insert(items, {
+                    text = (eInfo.color or "|cffffffff") .. eName .. "|r",
+                    checked = (ui.filterExp == expID),
+                    func = function()
+                        ui.filterExp = expID
+                        selfBtn:SetText(eName)
+                        ui.scrollOffset = 0
+                        addon:RefreshUI()
+                    end,
+                })
+            end
+        end
+        ToggleCollectorDropdown(selfBtn, items, 200)
     end)
     ui.expBtn = expBtn
 
-    -- Циклическая кнопка Сложности
+    -- Кнопка-выпадашка Сложности
     local diffOrder = { "ALL", "SOLO_FAST", "SOLO_RAID", "SOLO_GRIND", "GROUP", "PVP", "LEGACY" }
     local diffBtn = CreateCollectorButton(catCont, 130, 24, self:L("FILTER_DIFF_ALL"), false)
     diffBtn:SetPoint("LEFT", expBtn, "RIGHT", 6, 0)
     diffBtn:SetScript("OnClick", function(selfBtn, button)
         if button == "RightButton" then
+            HideCollectorDropdown()
             ui.filterDiff = "ALL"
-        else
-            local idx = 1
-            for i, k in ipairs(diffOrder) do
-                if k == ui.filterDiff then idx = i break end
-            end
-            ui.filterDiff = diffOrder[(idx % #diffOrder) + 1]
-        end
-        if ui.filterDiff == "ALL" then
             selfBtn:SetText(addon:L("FILTER_DIFF_ALL"))
-        else
-            local dm = DIFF_META[ui.filterDiff]
-            selfBtn:SetText(dm and addon:L(dm.key) or ui.filterDiff)
+            ui.scrollOffset = 0
+            addon:RefreshUI()
+            return
         end
-        ui.scrollOffset = 0
-        addon:RefreshUI()
+        local items = {}
+        for _, k in ipairs(diffOrder) do
+            local dm = DIFF_META[k]
+            local lbl = (k == "ALL") and addon:L("FILTER_DIFF_ALL") or ((dm and dm.color or "") .. addon:L(dm.key) .. "|r")
+            local plainLbl = (k == "ALL") and addon:L("FILTER_DIFF_ALL") or (dm and addon:L(dm.key) or k)
+            table.insert(items, {
+                text = lbl,
+                checked = (ui.filterDiff == k),
+                func = function()
+                    ui.filterDiff = k
+                    selfBtn:SetText(plainLbl)
+                    ui.scrollOffset = 0
+                    addon:RefreshUI()
+                end,
+            })
+        end
+        ToggleCollectorDropdown(selfBtn, items, 190)
     end)
     ui.diffBtn = diffBtn
 
-    -- Вторая строка мини-фильтров (Категория, Префикс/Суффикс, Сортировка, ★ Избранные)
+    -- Вторая строка мини-фильтров (Категория, Префикс/Суффикс, Сортировка, Избранные)
     local catOrder = { "ALL", "ACHIEVEMENT", "RAID", "DUNGEON", "REPUTATION", "QUEST", "EXPLORATION", "PVP", "HOLIDAY", "PROFESSION" }
     local catBtn = CreateCollectorButton(catCont, 145, 22, self:L("FILTER_CAT_ALL"), false)
     catBtn:SetPoint("TOPLEFT", searchBox, "BOTTOMLEFT", 0, -5)
     catBtn:SetScript("OnClick", function(selfBtn, button)
         if button == "RightButton" then
+            HideCollectorDropdown()
             ui.filterCat = "ALL"
-        else
-            local idx = 1
-            for i, k in ipairs(catOrder) do
-                if k == ui.filterCat then idx = i break end
-            end
-            ui.filterCat = catOrder[(idx % #catOrder) + 1]
+            selfBtn:SetText(addon:L("FILTER_CAT_ALL"))
+            ui.scrollOffset = 0
+            addon:RefreshUI()
+            return
         end
-        selfBtn:SetText(ui.filterCat == "ALL" and addon:L("FILTER_CAT_ALL") or addon:L("CAT_" .. ui.filterCat))
-        ui.scrollOffset = 0
-        addon:RefreshUI()
+        local items = {}
+        for _, k in ipairs(catOrder) do
+            local lbl = (k == "ALL") and addon:L("FILTER_CAT_ALL") or addon:L("CAT_" .. k)
+            table.insert(items, {
+                text = lbl,
+                checked = (ui.filterCat == k),
+                func = function()
+                    ui.filterCat = k
+                    selfBtn:SetText(lbl)
+                    ui.scrollOffset = 0
+                    addon:RefreshUI()
+                end,
+            })
+        end
+        ToggleCollectorDropdown(selfBtn, items, 175)
     end)
     ui.catBtn = catBtn
 
     local affixOrder = { "ALL", "PREFIX", "SUFFIX" }
     local affixBtn = CreateCollectorButton(catCont, 135, 22, self:L("FILTER_AFFIX_ALL"), false)
     affixBtn:SetPoint("LEFT", catBtn, "RIGHT", 6, 0)
-    affixBtn:SetScript("OnClick", function(selfBtn)
-        local idx = 1
-        for i, k in ipairs(affixOrder) do
-            if k == ui.filterAffix then idx = i break end
+    affixBtn:SetScript("OnClick", function(selfBtn, button)
+        if button == "RightButton" then
+            HideCollectorDropdown()
+            ui.filterAffix = "ALL"
+            selfBtn:SetText(addon:L("FILTER_AFFIX_ALL"))
+            ui.scrollOffset = 0
+            addon:RefreshUI()
+            return
         end
-        ui.filterAffix = affixOrder[(idx % #affixOrder) + 1]
-        selfBtn:SetText(addon:L("FILTER_AFFIX_" .. ui.filterAffix))
-        ui.scrollOffset = 0
-        addon:RefreshUI()
+        local items = {}
+        for _, k in ipairs(affixOrder) do
+            local lbl = addon:L("FILTER_AFFIX_" .. k)
+            table.insert(items, {
+                text = lbl,
+                checked = (ui.filterAffix == k),
+                func = function()
+                    ui.filterAffix = k
+                    selfBtn:SetText(lbl)
+                    ui.scrollOffset = 0
+                    addon:RefreshUI()
+                end,
+            })
+        end
+        ToggleCollectorDropdown(selfBtn, items, 175)
     end)
     ui.affixBtn = affixBtn
 
@@ -874,14 +1035,21 @@ function addon:EnsureMainWindow()
     local sortBtn = CreateCollectorButton(catCont, 125, 22, self:L("SORT_PROGRESS"), false)
     sortBtn:SetPoint("LEFT", affixBtn, "RIGHT", 6, 0)
     sortBtn:SetScript("OnClick", function(selfBtn)
-        local idx = 1
-        for i, k in ipairs(sortOrder) do
-            if k == ui.sortBy then idx = i break end
+        local items = {}
+        for _, k in ipairs(sortOrder) do
+            local lbl = addon:L("SORT_" .. k)
+            table.insert(items, {
+                text = lbl,
+                checked = (ui.sortBy == k),
+                func = function()
+                    ui.sortBy = k
+                    selfBtn:SetText(lbl)
+                    ui.scrollOffset = 0
+                    addon:RefreshUI()
+                end,
+            })
         end
-        ui.sortBy = sortOrder[(idx % #sortOrder) + 1]
-        selfBtn:SetText(addon:L("SORT_" .. ui.sortBy))
-        ui.scrollOffset = 0
-        addon:RefreshUI()
+        ToggleCollectorDropdown(selfBtn, items, 165)
     end)
     ui.sortBtn = sortBtn
 
