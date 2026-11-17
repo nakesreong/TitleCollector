@@ -160,14 +160,14 @@ CURATED_BY_TITLE = {
         "note_en": "Khaz Algar World PvP meta-achievement 'Ruffious's Bid' (Ruffious in Dornogal, 59.0, 69.2).",
     },
     "the lightbringer": {
-        "achID": 12078, "mapID": 830, "x": 56.0, "y": 67.0, "difficulty": "SOLO_FAST",
+        "achID": 12083, "mapID": 830, "x": 56.0, "y": 67.0, "difficulty": "SOLO_FAST",
         "note_ru": "Мета-достижение кампании Аргуса «Образцовый воин Света» (Крокуун / Пустоши Анторуса / Эредат).",
         "note_en": "Argus campaign meta-achievement 'Paragon of Argus' (Krokuun, Antoran Wastes, Eredath).",
     },
     "demonslayer": {
-        "achID": 12069, "mapID": 885, "x": 54.8, "y": 62.4, "difficulty": "SOLO_FAST",
-        "note_ru": "Уничтожьте редких командиров Легиона на Аргусе (Пустоши Анторуса, Крокуун и Эредат).",
-        "note_en": "Defeat the rare Legion commanders across Argus.",
+        "achID": 12104, "mapID": 885, "x": 54.8, "y": 62.4, "difficulty": "SOLO_FAST",
+        "note_ru": "Убейте 2000 демонов на Аргусе — достижение «И у нас закончились булочки из маны...» (Пустоши Анторуса, Крокуун и Эредат).",
+        "note_en": "Kill 2,000 non-trivial demons on Argus ('And We're All Out of Mana Buns').",
     },
     "stormbreaker": {
         "achID": 8121, "mapID": 504, "x": 50.0, "y": 50.0, "difficulty": "SOLO_GRIND",
@@ -601,7 +601,7 @@ def main():
                 dfa_drop_name = s.get("name")
                 dfa_drop_zone = s.get("zone")
 
-        ach_id = curated.get("achID") or dfa_ach_id
+        ach_id = dfa_ach_id or curated.get("achID")
         if not ach_id:
             ach_id = reward_to_ach_id.get(clean_en.lower()) or reward_to_ach_id.get(clean_ru.lower())
 
