@@ -469,15 +469,28 @@ function addon:GetServerRarityInfo(titleOrMaskID)
     return displayRealm, realmPop, estOwners, seenCount, globalPct
 end
 
--- Извлекает объект звания, надетого на указанного юнита-игрока
+-- Извлекает объект звания, надетого на указанного юнита-игрока (с полной защитой от Secret Values 12.x)
 function addon:ExtractUnitTitle(unit)
-    if not unit or not SafeNotSecret(unit) then return nil, nil, nil end
-    if not UnitExists or not UnitExists(unit) or not UnitIsPlayer(unit) then return nil, nil, nil end
+    if not unit or not SafeNotSecret(unit) or type(unit) ~= "string" then return nil, nil, nil end
+    if not UnitExists or not UnitIsPlayer then return nil, nil, nil end
 
-    local uName, uRealm = UnitName(unit)
-    local pvpName = UnitPVPName and UnitPVPName(unit)
-    if not SafeNotSecret(uName) or not SafeNotSecret(pvpName) then return nil, nil, nil end
-    if type(uName) ~= "string" or type(pvpName) ~= "string" or uName == "" or pvpName == "" then return nil, nil, nil end
+    local okE, exists = pcall(UnitExists, unit)
+    if not okE or not SafeNotSecret(exists) or not exists then return nil, nil, nil end
+
+    local okP, isPlayer = pcall(UnitIsPlayer, unit)
+    if not okP or not SafeNotSecret(isPlayer) or not isPlayer then return nil, nil, nil end
+
+    local okN, uName, uRealm = pcall(UnitName, unit)
+    local okPVP, pvpName = false, nil
+    if UnitPVPName then
+        okPVP, pvpName = pcall(UnitPVPName, unit)
+    end
+    if not okN or not okPVP or not SafeNotSecret(uName) or not SafeNotSecret(pvpName) then
+        return nil, nil, nil
+    end
+    if type(uName) ~= "string" or type(pvpName) ~= "string" or uName == "" or pvpName == "" then
+        return nil, nil, nil
+    end
     if pvpName == uName then return nil, nil, nil end
 
     local sIdx, eIdx = string.find(pvpName, uName, 1, true)
@@ -534,11 +547,15 @@ function addon:InitPlayerTooltips()
         if not titleObj then return end
 
         -- Защита от дублирования строк
-        for i = 1, tooltip:NumLines() do
-            local leftLine = _G[tooltip:GetName() .. "TextLeft" .. i]
-            local txt = leftLine and leftLine:GetText()
-            if SafeNotSecret(txt) and type(txt) == "string" and string.find(txt, "TitleCollector", 1, true) then
-                return
+        local ttName = tooltip.GetName and tooltip:GetName()
+        local numLines = (tooltip.NumLines and tooltip:NumLines()) or 0
+        if ttName and SafeNotSecret(numLines) and type(numLines) == "number" then
+            for i = 1, numLines do
+                local leftLine = _G[ttName .. "TextLeft" .. i]
+                local txt = leftLine and leftLine.GetText and leftLine:GetText()
+                if SafeNotSecret(txt) and type(txt) == "string" and string.find(txt, "TitleCollector", 1, true) then
+                    return
+                end
             end
         end
 
@@ -568,7 +585,7 @@ function addon:InitPlayerTooltips()
         if self:IsTitleCollected(titleObj.maskID) then
             tooltip:AddLine(self:L("TT_COLLECTED_YES"))
         else
-            local prog = self:EvaluateTitleProgress(titleObj)
+            local prog = self:EvaluateTitleProgress(titleObj, false, true)
             local pct = prog and prog.pct or 0
             tooltip:AddLine(self:L("TT_COLLECTED_NO_FMT", pct))
         end

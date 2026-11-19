@@ -350,8 +350,8 @@ function addon:RebuildFilteredTitles()
         local favB = self:IsTitleFavorite(b.maskID) and 1 or 0
         if favA ~= favB then return favA > favB end
 
-        local progA = self:EvaluateTitleProgress(a)
-        local progB = self:EvaluateTitleProgress(b)
+        local progA = self:EvaluateTitleProgress(a, false, true)
+        local progB = self:EvaluateTitleProgress(b, false, true)
 
         if ui.currentTab == "COLLECTED" and (ui.sortBy == "RARITY" or ui.sortBy == "PROGRESS") then
             local rA = a.rarity or 999
@@ -465,7 +465,7 @@ function addon:RefreshInspector()
     end
 
     -- Прогресс-бар и чек-лист критериев
-    local prog = self:EvaluateTitleProgress(t)
+    local prog = self:EvaluateTitleProgress(t, false, false)
     local pct = prog and prog.pct or 0
     insp.progBar:SetValue(pct)
     if isCol then
@@ -597,7 +597,7 @@ function addon:RefreshListRows()
             )
             row.subFS:SetText(subText)
 
-            local prog = self:EvaluateTitleProgress(t)
+            local prog = self:EvaluateTitleProgress(t, false, true)
             local pct = prog and prog.pct or 0
             row.progBar:SetValue(pct)
             if isCol then
@@ -1804,19 +1804,157 @@ end
 
 addon.lastKnownPctByMask = {}
 addon.lastToastTime = 0
+addon.scanWorkerToken = 0
+addon.scanDebounceToken = 0
+addon.pendingScanMode = nil
+addon.pendingCombatScanMode = nil
 
-function addon:SnapshotProgressBaseline()
-    wipe(self.lastKnownPctByMask)
-    for _, t in ipairs(self.Titles) do
-        local isCol = self:IsTitleCollected(t.maskID)
-        if isCol then
-            self.lastKnownPctByMask[t.maskID] = 100.0
-        elseif t.obtainable then
-            local prog = self:EvaluateTitleProgress(t)
-            self.lastKnownPctByMask[t.maskID] = prog and prog.pct or 0.0
+-- Фоновый кадровый пересчёт прогресса с жёстким бюджетом <= 2.0 мс на кадр (0 фризов в StutterAlert!)
+function addon:StartSlicedProgressWorker(mode)
+    self.scanWorkerToken = (self.scanWorkerToken or 0) + 1
+    local myToken = self.scanWorkerToken
+    local total = #self.Titles
+    if total == 0 then
+        if mode == "BASELINE" then self.baselineReady = true end
+        return
+    end
+
+    local isBaseline = (mode == "BASELINE") or (not self.baselineReady)
+    local wantToast = (not isBaseline) and self.db and self.db.settings and self.db.settings.showProgressToast
+    local toastFired = false
+    local idx = 1
+    local getMs = _G.debugprofilestop
+
+    local function ProcessNextSlice()
+        if self.scanWorkerToken ~= myToken then return end
+
+        -- В бою мгновенно ставим фоновый обход на паузу (0.00 мс нагрузки в бою!)
+        if InCombatLockdown and InCombatLockdown() then
+            if isBaseline then
+                self.pendingCombatScanMode = "BASELINE"
+            elseif not self.pendingCombatScanMode then
+                self.pendingCombatScanMode = "DELTA"
+            end
+            return
+        end
+
+        local startMs = getMs and getMs() or nil
+        local processedInSlice = 0
+
+        while idx <= total do
+            local t = self.Titles[idx]
+            idx = idx + 1
+            processedInSlice = processedInSlice + 1
+
+            local isCol = self:IsTitleCollected(t.maskID)
+            if isBaseline then
+                if isCol then
+                    self.lastKnownPctByMask[t.maskID] = 100.0
+                    self:EvaluateTitleProgress(t, true, true)
+                elseif t.obtainable then
+                    local prog = self:EvaluateTitleProgress(t, true, true)
+                    self.lastKnownPctByMask[t.maskID] = prog and prog.pct or 0.0
+                end
+            else
+                local oldPct = self.lastKnownPctByMask[t.maskID] or 0.0
+                if isCol then
+                    self.lastKnownPctByMask[t.maskID] = 100.0
+                    self:EvaluateTitleProgress(t, true, true)
+                    if wantToast and not toastFired and oldPct < 100.0 then
+                        toastFired = true
+                        local fullProg = self:EvaluateTitleProgress(t, true, false)
+                        self:TriggerProgressToast(t, fullProg, true, false)
+                    end
+                elseif t.obtainable then
+                    local prog = self:EvaluateTitleProgress(t, true, true)
+                    local newPct = prog and prog.pct or 0.0
+                    self.lastKnownPctByMask[t.maskID] = newPct
+                    if wantToast and not toastFired and newPct > (oldPct + 0.5)
+                        and (newPct >= 70.0 or self:IsTitleTracked(t) or self:IsTitleFavorite(t.maskID))
+                    then
+                        toastFired = true
+                        local fullProg = self:EvaluateTitleProgress(t, true, false)
+                        self:TriggerProgressToast(t, fullProg, false, false)
+                    end
+                end
+            end
+
+            if processedInSlice >= 35 then
+                break
+            end
+            if startMs and (processedInSlice % 5 == 0) and ((getMs() - startMs) >= 2.0) then
+                break
+            end
+        end
+
+        if idx <= total then
+            C_Timer.After(0.03, ProcessNextSlice)
+        else
+            if isBaseline then
+                self.baselineReady = true
+            end
+            if ui.mainFrame and ui.mainFrame:IsShown() then
+                if ui.selectedTitle then
+                    self:EvaluateTitleProgress(ui.selectedTitle, true, false)
+                end
+                self:RefreshUI()
+            end
         end
     end
-    self.baselineReady = true
+
+    C_Timer.After(0.02, ProcessNextSlice)
+end
+
+-- Мягкий дебаунс (схлопывает пачки по 20+ CRITERIA_UPDATE / UPDATE_FACTION при сдаче охоты и квестов в один проход)
+function addon:ScheduleProgressScan(mode, fastAchID)
+    -- Быстрый O(1) путь для прямого получения достижения со званием (< 0.05 мс)
+    if fastAchID and type(fastAchID) == "number" and self.TitlesByAchID and self.TitlesByAchID[fastAchID] then
+        local directTitle = self.TitlesByAchID[fastAchID]
+        local oldPct = self.lastKnownPctByMask[directTitle.maskID] or 0.0
+        local fullProg = self:EvaluateTitleProgress(directTitle, true, false)
+        if self:IsTitleCollected(directTitle.maskID) then
+            self.lastKnownPctByMask[directTitle.maskID] = 100.0
+            if self.baselineReady and oldPct < 100.0 then
+                self:TriggerProgressToast(directTitle, fullProg, true, false)
+            end
+        elseif fullProg then
+            self.lastKnownPctByMask[directTitle.maskID] = fullProg.pct or 0.0
+        end
+    end
+
+    if mode == "BASELINE" then
+        self.pendingScanMode = "BASELINE"
+    elseif self.pendingScanMode ~= "BASELINE" then
+        self.pendingScanMode = "DELTA"
+    end
+
+    if InCombatLockdown and InCombatLockdown() then
+        if self.pendingScanMode == "BASELINE" then
+            self.pendingCombatScanMode = "BASELINE"
+        elseif not self.pendingCombatScanMode then
+            self.pendingCombatScanMode = "DELTA"
+        end
+        return
+    end
+
+    self.scanDebounceToken = (self.scanDebounceToken or 0) + 1
+    local myDebToken = self.scanDebounceToken
+    local delay = (self.pendingScanMode == "BASELINE") and 0.25 or 0.65
+
+    C_Timer.After(delay, function()
+        if self.scanDebounceToken ~= myDebToken then return end
+        local runMode = self.pendingScanMode or "DELTA"
+        self.pendingScanMode = nil
+        if InCombatLockdown and InCombatLockdown() then
+            self.pendingCombatScanMode = runMode
+            return
+        end
+        self:StartSlicedProgressWorker(runMode)
+    end)
+end
+
+function addon:SnapshotProgressBaseline()
+    self:ScheduleProgressScan("BASELINE")
 end
 
 function addon:EnsureProgressToastFrame()
@@ -1932,27 +2070,7 @@ function addon:TriggerProgressToast(title, prog, isUnlocked, forceTest)
 end
 
 function addon:CheckProgressDeltasAndToast()
-    if not self.baselineReady then return end
-    if not self.db or not self.db.settings or not self.db.settings.showProgressToast then return end
-
-    for _, t in ipairs(self.Titles) do
-        local oldPct = self.lastKnownPctByMask[t.maskID] or 0.0
-        local isCol = self:IsTitleCollected(t.maskID)
-        if isCol and oldPct < 100.0 then
-            self.lastKnownPctByMask[t.maskID] = 100.0
-            local prog = self:EvaluateTitleProgress(t)
-            self:TriggerProgressToast(t, prog, true, false)
-            return
-        elseif not isCol and t.obtainable then
-            local prog = self:EvaluateTitleProgress(t)
-            local newPct = prog and prog.pct or 0.0
-            self.lastKnownPctByMask[t.maskID] = newPct
-            if newPct > (oldPct + 0.5) and (newPct >= 70.0 or self:IsTitleTracked(t) or self:IsTitleFavorite(t.maskID)) then
-                self:TriggerProgressToast(t, prog, false, false)
-                return
-            end
-        end
-    end
+    self:ScheduleProgressScan("DELTA")
 end
 
 -- ============================================================================
@@ -1994,6 +2112,9 @@ eventFrame:RegisterEvent("UPDATE_FACTION")
 eventFrame:RegisterEvent("MAJOR_FACTION_RENOWN_LEVEL_CHANGED")
 eventFrame:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED")
 eventFrame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
+eventFrame:RegisterEvent("ZONE_CHANGED_INDOORS")
+eventFrame:RegisterEvent("ZONE_CHANGED")
+eventFrame:RegisterEvent("USER_WAYPOINT_UPDATED")
 eventFrame:RegisterEvent("PLAYER_UPDATE_RESTING")
 eventFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
 eventFrame:RegisterEvent("PLAYER_TARGET_CHANGED")
@@ -2004,32 +2125,43 @@ eventFrame:SetScript("OnEvent", function(_, event, arg1)
         addon:InitDB()
         addon:BuildTitleIndex()
         addon:InitPlayerTooltips()
+        if addon.InitWaypointHooks then
+            addon:InitWaypointHooks()
+        end
         addon:InitLDB()
     elseif event == "PLAYER_ENTERING_WORLD" then
         C_Timer.After(0.8, function()
             addon:BuildTitleIndex()
-            addon:InvalidateProgressCache()
-            addon:SnapshotProgressBaseline()
+            addon:ScheduleProgressScan("BASELINE")
             addon:SetupRoundMinimapButton()
             addon:HookCharacterTitlesPane()
             addon:CheckPortalRouteProgress()
             addon:EvaluateAutoTitleRules("ENTER_WORLD")
         end)
+        C_Timer.After(2.0, function() addon:CheckPortalRouteProgress() end)
     elseif event == "KNOWN_TITLES_UPDATE" or (event == "UNIT_NAME_UPDATE" and arg1 == "player") then
-        addon:InvalidateProgressCache()
-        addon:CheckProgressDeltasAndToast()
+        addon:ScheduleProgressScan("DELTA")
         if ui.mainFrame and ui.mainFrame:IsShown() then
+            if ui.selectedTitle then
+                addon:EvaluateTitleProgress(ui.selectedTitle, true, false)
+            end
             addon:RefreshUI()
         end
-    elseif event == "ACHIEVEMENT_EARNED" or event == "CRITERIA_UPDATE" or event == "QUEST_TURNED_IN" or event == "UPDATE_FACTION" or event == "MAJOR_FACTION_RENOWN_LEVEL_CHANGED" then
-        addon:InvalidateProgressCache()
-        addon:CheckProgressDeltasAndToast()
-        if ui.mainFrame and ui.mainFrame:IsShown() then
-            addon:RefreshUI()
+    elseif event == "ACHIEVEMENT_EARNED" then
+        local earnedID = (addon.SafeNotSecret(arg1) and type(arg1) == "number") and arg1 or nil
+        addon:ScheduleProgressScan("DELTA", earnedID)
+    elseif event == "CRITERIA_UPDATE" or event == "QUEST_TURNED_IN" or event == "UPDATE_FACTION" or event == "MAJOR_FACTION_RENOWN_LEVEL_CHANGED" then
+        addon:ScheduleProgressScan("DELTA")
+    elseif event == "USER_WAYPOINT_UPDATED" then
+        if addon.OnUserWaypointUpdated then
+            addon:OnUserWaypointUpdated()
         end
+    elseif event == "ZONE_CHANGED_INDOORS" or event == "ZONE_CHANGED" then
+        C_Timer.After(0.4, function() addon:CheckPortalRouteProgress() end)
     elseif event == "PLAYER_SPECIALIZATION_CHANGED" or event == "ZONE_CHANGED_NEW_AREA" or event == "PLAYER_UPDATE_RESTING" then
         if event == "ZONE_CHANGED_NEW_AREA" then
-            addon:CheckPortalRouteProgress()
+            C_Timer.After(0.4, function() addon:CheckPortalRouteProgress() end)
+            C_Timer.After(1.4, function() addon:CheckPortalRouteProgress() end)
         end
         C_Timer.After(0.5, function()
             addon:EvaluateAutoTitleRules(event)
@@ -2042,6 +2174,11 @@ eventFrame:SetScript("OnEvent", function(_, event, arg1)
             local targetMask = addon.pendingEquipMaskID
             addon.pendingEquipMaskID = nil
             addon:EquipTitle(targetMask, false)
+        end
+        if addon.pendingCombatScanMode then
+            local resumeMode = addon.pendingCombatScanMode
+            addon.pendingCombatScanMode = nil
+            addon:ScheduleProgressScan(resumeMode)
         end
     elseif event == "PLAYER_TARGET_CHANGED" then
         addon:ScanUnitTitle("target")

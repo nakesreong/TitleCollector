@@ -10,6 +10,17 @@ local SafeNotSecret = addon.SafeNotSecret
 
 addon.activePortalRoute = nil
 addon.portalTomTomUids = {}
+addon.isSettingWaypoint = false
+
+function addon:ClearActivePortalRoute()
+    self.activePortalRoute = nil
+    if _G.TomTom and _G.TomTom.RemoveWaypoint and self.portalTomTomUids then
+        for _, uid in ipairs(self.portalTomTomUids) do
+            pcall(_G.TomTom.RemoveWaypoint, _G.TomTom, uid)
+        end
+        wipe(self.portalTomTomUids)
+    end
+end
 
 local function GetMapAncestry(mapID)
     local chain = {}
@@ -232,29 +243,64 @@ function addon:ActivateCurrentRouteStep(silent)
         local ok, uid = pcall(_G.TomTom.AddWaypoint, _G.TomTom, step.mapID, step.x / 100, step.y / 100, {
             title = stepLabel, persistent = false, minimap = true, world = true, crazy = true,
         })
-        if ok and uid then table.insert(self.portalTomTomUids, uid) end
+        if ok and uid then
+            table.insert(self.portalTomTomUids, uid)
+            if _G.TomTom.SetCrazyArrow then
+                pcall(_G.TomTom.SetCrazyArrow, _G.TomTom, uid, 15, stepLabel)
+            end
+        end
+        if step.subMapID and step.subX and step.subY then
+            local okSub, uidSub = pcall(_G.TomTom.AddWaypoint, _G.TomTom, step.subMapID, step.subX / 100, step.subY / 100, {
+                title = stepLabel, persistent = false, minimap = true, world = true, crazy = true,
+            })
+            if okSub and uidSub then
+                table.insert(self.portalTomTomUids, uidSub)
+            end
+        end
     end
 
     if C_Map and C_Map.SetUserWaypoint and _G.UiMapPoint and _G.UiMapPoint.CreateFromCoordinates then
         local pinMapID, pinX, pinY = ResolvePinnableMapCoords(step.mapID, step.x / 100, step.y / 100)
         local okCan, canSet = pcall(C_Map.CanSetUserWaypointOnMap, pinMapID)
         if not okCan or canSet then
+            route.activePinMapID = pinMapID
+            route.activePinX = pinX
+            route.activePinY = pinY
+            self.isSettingWaypoint = true
             local uiPt = UiMapPoint.CreateFromCoordinates(pinMapID, pinX, pinY)
             pcall(C_Map.SetUserWaypoint, uiPt)
             if C_SuperTrack and C_SuperTrack.SetSuperTrackedUserWaypoint then
                 pcall(C_SuperTrack.SetSuperTrackedUserWaypoint, true)
+                C_Timer.After(0.10, function()
+                    if self.activePortalRoute == route and C_SuperTrack and C_SuperTrack.SetSuperTrackedUserWaypoint then
+                        self.isSettingWaypoint = true
+                        pcall(C_SuperTrack.SetSuperTrackedUserWaypoint, true)
+                        self.isSettingWaypoint = false
+                    end
+                end)
             end
+            self.isSettingWaypoint = false
         end
     end
 
     if not silent then
-        local zoneName = step.zone or self:L("UNKNOWN_ZONE")
-        print(string.format(
-            isEN
-                and "|cffffd100[TitleCollector]|r Route plotted to |cff00ccff%s|r: %s (%.1f, %.1f)"
-                or "|cffffd100[TitleCollector]|r Проложен путь к |cff00ccff%s|r: %s (%.1f, %.1f)",
-            route.targetName, zoneName, step.x or 50, step.y or 50
-        ))
+        local mapInfo = C_Map and C_Map.GetMapInfo and C_Map.GetMapInfo(step.mapID)
+        local zoneName = step.zone or (mapInfo and SafeNotSecret(mapInfo.name) and mapInfo.name) or self:L("UNKNOWN_ZONE")
+        if totalSteps > 1 then
+            print(string.format(
+                isEN
+                    and "|cffffd100[TitleCollector Route %d/%d]|r Minimap arrow leads to: |cff00ccff%s|r — %s (%.1f, %.1f)"
+                    or "|cffffd100[TitleCollector Маршрут %d/%d]|r Стрелка миникарты ведёт: |cff00ccff%s|r — %s (%.1f, %.1f)",
+                route.currentStep, totalSteps, step.note or route.targetName, zoneName, step.x or 50, step.y or 50
+            ))
+        else
+            print(string.format(
+                isEN
+                    and "|cffffd100[TitleCollector]|r Route plotted to |cff00ccff%s|r: %s (%.1f, %.1f)"
+                    or "|cffffd100[TitleCollector]|r Проложен путь к |cff00ccff%s|r: %s (%.1f, %.1f)",
+                route.targetName, zoneName, step.x or 50, step.y or 50
+            ))
+        end
     end
 end
 
@@ -264,11 +310,90 @@ function addon:CheckPortalRouteProgress()
     local playerMapID = C_Map and C_Map.GetBestMapForUnit and C_Map.GetBestMapForUnit("player")
     if not playerMapID then return end
 
+    local playerRegion = GetMapMacroRegion(playerMapID)
+    local playerInstID = GetMapInstanceID(playerMapID)
     local finalStep = route.steps[#route.steps]
-    if playerMapID == finalStep.mapID then
+    local finalRegion = GetMapMacroRegion(finalStep.mapID)
+    local finalInstID = GetMapInstanceID(finalStep.mapID)
+
+    -- 1. Если игрок уже в целевой зоне или на том же континенте/макро-регионе, что и финальная цель
+    if playerMapID == finalStep.mapID
+        or playerRegion == finalRegion
+        or (playerInstID and finalInstID and playerInstID == finalInstID and playerRegion == finalRegion)
+    then
         if route.currentStep ~= #route.steps then
             route.currentStep = #route.steps
             self:ActivateCurrentRouteStep(false)
+        end
+        return
+    end
+
+    -- 2. Ищем самый дальний промежуточный шаг маршрута, в регионе или карте которого оказался игрок
+    for i = #route.steps, 1, -1 do
+        local st = route.steps[i]
+        local stRegion = GetMapMacroRegion(st.mapID)
+        if playerMapID == st.mapID or playerMapID == st.subMapID or playerRegion == stRegion then
+            if i > route.currentStep then
+                route.currentStep = i
+                self:ActivateCurrentRouteStep(false)
+            end
+            return
+        end
+    end
+end
+
+-- Защита от «зомби-метки»: если игрок вручную снял метку на карте или начал отслеживать другой объект
+-- (квест, рарника, ящик с военными припасами), мгновенно сбрасываем activePortalRoute, чтобы метка не воскресала!
+function addon:OnUserWaypointUpdated()
+    if self.isSettingWaypoint or not self.activePortalRoute then return end
+    if C_Map and C_Map.HasUserWaypoint and not C_Map.HasUserWaypoint() then
+        self:ClearActivePortalRoute()
+    elseif C_Map and C_Map.GetUserWaypoint then
+        local ok, wp = pcall(C_Map.GetUserWaypoint)
+        local route = self.activePortalRoute
+        if ok and wp and route and route.activePinMapID then
+            local pos = wp.position
+            local wx, wy = pos and pos:GetXY()
+            if wp.uiMapID ~= route.activePinMapID
+                or (wx and route.activePinX and math.abs(wx - route.activePinX) > 0.005)
+                or (wy and route.activePinY and math.abs(wy - route.activePinY) > 0.005)
+            then
+                self:ClearActivePortalRoute()
+            end
+        end
+    end
+end
+
+function addon:InitWaypointHooks()
+    if self.waypointHooksInitialized then return end
+    self.waypointHooksInitialized = true
+    if not _G.hooksecurefunc then return end
+
+    if C_Map then
+        if C_Map.ClearUserWaypoint then
+            pcall(hooksecurefunc, C_Map, "ClearUserWaypoint", function()
+                if not addon.isSettingWaypoint then
+                    addon:ClearActivePortalRoute()
+                end
+            end)
+        end
+        if C_Map.SetUserWaypoint then
+            pcall(hooksecurefunc, C_Map, "SetUserWaypoint", function()
+                if not addon.isSettingWaypoint then
+                    addon:ClearActivePortalRoute()
+                end
+            end)
+        end
+    end
+    if C_SuperTrack then
+        for _, fnName in ipairs({ "SetSuperTrackedVignette", "SetSuperTrackedContent", "SetSuperTrackedQuestID", "ClearAllSuperTracked" }) do
+            if C_SuperTrack[fnName] then
+                pcall(hooksecurefunc, C_SuperTrack, fnName, function()
+                    if not addon.isSettingWaypoint then
+                        addon:ClearActivePortalRoute()
+                    end
+                end)
+            end
         end
     end
 end

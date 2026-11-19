@@ -127,16 +127,34 @@ local function EvaluateFactionProgress(factionID, reqStanding, reqRenown)
     return nil
 end
 
-function addon:EvaluateTitleProgress(title, forceRefresh)
+function addon:EvaluateTitleProgress(title, forceRefresh, summaryOnly)
     if not title or not title.maskID then
         return { isCollected = false, pct = 0, doneCount = 0, totalCount = 0, criteria = {} }
     end
 
-    if not forceRefresh and self.ProgressCache[title.maskID] then
-        return self.ProgressCache[title.maskID]
+    local cached = self.ProgressCache[title.maskID]
+    if not forceRefresh and cached then
+        if summaryOnly or not cached.summaryOnly then
+            return cached
+        end
     end
 
     local isCollected = self:IsTitleCollected(title.maskID)
+    if isCollected and summaryOnly then
+        local fastRes = {
+            isCollected = true,
+            pct = 100.0,
+            doneCount = 1,
+            totalCount = 1,
+            criteria = (cached and not cached.summaryOnly and cached.criteria) or {},
+            summaryOnly = (not cached or cached.summaryOnly == true),
+        }
+        if not cached or cached.summaryOnly or not cached.isCollected then
+            self.ProgressCache[title.maskID] = fastRes
+        end
+        return self.ProgressCache[title.maskID]
+    end
+
     local criteria = {}
     local totalWeight = 0
     local earnedWeight = 0
@@ -306,6 +324,7 @@ function addon:EvaluateTitleProgress(title, forceRefresh)
         doneCount = doneCount,
         totalCount = totalCount,
         criteria = criteria,
+        summaryOnly = false,
     }
     self.ProgressCache[title.maskID] = result
     return result
@@ -324,7 +343,7 @@ function addon:GetOverallCollectionStats()
                 totalObtainable = totalObtainable + 1
             elseif t.obtainable or not hideUnobtainable then
                 totalObtainable = totalObtainable + 1
-                local prog = self:EvaluateTitleProgress(t)
+                local prog = self:EvaluateTitleProgress(t, false, true)
                 if prog and prog.pct >= 70.0 then
                     almostDoneCount = almostDoneCount + 1
                 end
