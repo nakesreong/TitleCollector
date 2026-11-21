@@ -833,6 +833,9 @@ def main():
             else 1
         )
 
+        fac_name_en = (faction_by_id_en.get(faction_id) or dfa_faction_name or "") if faction_id else ""
+        fac_name_ru = (faction_by_id_ru.get(faction_id) or COVENANT_LABELS_RU.get(dfa_faction_name or "") or fac_name_en) if faction_id else ""
+
         records.append({
             "maskID": mask_id,
             "dbID": db_id,
@@ -859,6 +862,8 @@ def main():
             "icon": icon_id if icon_id > 0 else None,
             "questID": quest_id,
             "factionID": faction_id,
+            "facName_ru": fac_name_ru,
+            "facName_en": fac_name_en,
             "reqStanding": req_standing,
             "reqRenown": req_renown,
             "mapID": map_id,
@@ -929,6 +934,10 @@ def main():
             parts.append(f"questID={r['questID']}")
         if r["factionID"]:
             parts.append(f"factionID={r['factionID']}")
+        if r["facName_ru"]:
+            parts.append(f"facName_ru={lua_str(r['facName_ru'])}")
+        if r["facName_en"]:
+            parts.append(f"facName_en={lua_str(r['facName_en'])}")
         if r["reqStanding"]:
             parts.append(f"reqStanding={r['reqStanding']}")
         if r["reqRenown"]:

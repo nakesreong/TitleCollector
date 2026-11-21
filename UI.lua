@@ -424,7 +424,7 @@ function addon:RefreshInspector()
 
     -- Живой предпросмотр над головой персонажа
     local classHex = GetPlayerClassColorHex()
-    local playerName = classHex .. (UnitName("player") or "Герой") .. "|r"
+    local playerName = classHex .. (UnitName("player") or (self:IsEnglish() and "Hero" or "Герой")) .. "|r"
     local formattedPreview = self:FormatTitleWithPlayerName(t, playerName, ui.previewFemale)
     insp.previewFS:SetText(formattedPreview)
 
@@ -582,7 +582,7 @@ function addon:RefreshListRows()
             row.iconTex:SetTexture(t.icon or "Interface\\ICONS\\INV_Crown_01")
 
             local cleanName = self:GetTitleCleanName(t)
-            local eqBadge = isEquipped and " |cff00ff96[Надето]|r" or ""
+            local eqBadge = isEquipped and (" |cff00ff96" .. self:L("ROW_EQUIPPED_BADGE") .. "|r") or ""
             row.nameFS:SetText((isCol and "|cff00ff96" or "|cffffd100") .. cleanName .. "|r" .. eqBadge)
 
             local expInfo = self.ExpansionNames[t.exp or 1] or self.ExpansionNames[1]
@@ -673,19 +673,37 @@ function addon:RefreshListRows()
     end
 end
 
+local EN_SPEC_NAMES = {
+    [62] = "Arcane", [63] = "Fire", [64] = "Frost",
+    [65] = "Holy", [66] = "Protection", [70] = "Retribution",
+    [71] = "Arms", [72] = "Fury", [73] = "Protection",
+    [102] = "Balance", [103] = "Feral", [104] = "Guardian", [105] = "Restoration",
+    [250] = "Blood", [251] = "Frost", [252] = "Unholy",
+    [253] = "Beast Mastery", [254] = "Marksmanship", [255] = "Survival",
+    [256] = "Discipline", [257] = "Holy", [258] = "Shadow",
+    [259] = "Assassination", [260] = "Outlaw", [261] = "Subtlety",
+    [262] = "Elemental", [263] = "Enhancement", [264] = "Restoration",
+    [265] = "Affliction", [266] = "Demonology", [267] = "Destruction",
+    [268] = "Brewmaster", [269] = "Windwalker", [270] = "Mistweaver",
+    [577] = "Havoc", [581] = "Vengeance", [1480] = "Devourer",
+    [1467] = "Devastation", [1468] = "Preservation", [1473] = "Augmentation",
+}
+
 function addon:RefreshAutoTitlePanel()
-    if not ui.autoPanel or not ui.autoPanel:IsShown() then return end
+    if not ui.autoPanel then return end
     local rules = self:GetCharAutoRules()
     ui.autoPanel.masterCB:SetChecked(self.db.settings.enableAutoTitle == true)
 
+    local isEN = self:IsEnglish()
     local numSpecs = (_G.GetNumSpecializations and GetNumSpecializations()) or 0
     for i = 1, 4 do
         local sRow = ui.autoRuleRows["SPEC_" .. i]
         if sRow then
             if i <= numSpecs and _G.GetSpecializationInfo then
-                local _, specName, _, specIcon = GetSpecializationInfo(i)
+                local specID, specName, _, specIcon = GetSpecializationInfo(i)
+                local dispSpec = (isEN and specID and EN_SPEC_NAMES[specID]) or specName or ("Spec " .. i)
                 sRow.iconTex:SetTexture(specIcon or 134400)
-                sRow.labelFS:SetText(string.format("%d. %s:", i, specName or ("Spec " .. i)))
+                sRow.labelFS:SetText(string.format("%d. %s:", i, dispSpec))
                 sRow.valFS:SetText(self:FormatAutoRuleValue(rules.specs[i]))
                 sRow:Show()
             else
@@ -697,6 +715,9 @@ function addon:RefreshAutoTitlePanel()
     for _, ctxKey in ipairs({ "PVP", "RAID", "CITY" }) do
         local cRow = ui.autoRuleRows["CTX_" .. ctxKey]
         if cRow then
+            if cRow.lblKey then
+                cRow.labelFS:SetText(self:L(cRow.lblKey))
+            end
             cRow.valFS:SetText(self:FormatAutoRuleValue(rules.contexts[ctxKey]))
         end
     end
@@ -820,8 +841,10 @@ function addon:EnsureMainWindow()
     langBtn:SetScript("OnClick", function(selfBtn)
         addon.db.settings.language = addon:IsEnglish() and "ruRU" or "enUS"
         selfBtn:SetText(addon:IsEnglish() and "EN" or "RU")
+        addon:InvalidateProgressCache()
         addon:ApplyLocaleToStaticUI()
         addon:RefreshUI()
+        addon:ScheduleProgressScan("BASELINE")
     end)
     f.langBtn = langBtn
 
@@ -1223,21 +1246,24 @@ function addon:EnsureMainWindow()
         val:SetWordWrap(false)
         r.valFS = val
 
-        local clrBtn = CreateCollectorButton(r, 72, 24, addon:L("AUTO_BTN_CLEAR"), false)
+        local clrBtn = CreateCollectorButton(r, 82, 24, addon:L("AUTO_BTN_CLEAR"), false)
         clrBtn:SetPoint("RIGHT", r, "RIGHT", -6, 0)
         clrBtn:SetScript("OnClick", function() applyCallback(nil) end)
+        r.clrBtn = clrBtn
 
-        local favBtn = CreateCollectorButton(r, 64, 24, addon:L("AUTO_BTN_ASSIGN_FAV_RND"), false)
+        local favBtn = CreateCollectorButton(r, 58, 24, addon:L("AUTO_BTN_ASSIGN_FAV_RND"), false)
         favBtn:SetPoint("RIGHT", clrBtn, "LEFT", -4, 0)
         favBtn:SetScript("OnClick", function() applyCallback("FAV") end)
+        r.favBtn = favBtn
 
-        local setBtn = CreateCollectorButton(r, 110, 24, addon:L("AUTO_BTN_ASSIGN_SELECTED"), true)
+        local setBtn = CreateCollectorButton(r, 126, 24, addon:L("AUTO_BTN_ASSIGN_SELECTED"), true)
         setBtn:SetPoint("RIGHT", favBtn, "LEFT", -4, 0)
         setBtn:SetScript("OnClick", function()
             if ui.selectedTitle then
                 applyCallback(ui.selectedTitle.maskID)
             end
         end)
+        r.setBtn = setBtn
 
         ui.autoRuleRows[key] = r
         return r
@@ -1258,12 +1284,13 @@ function addon:EnsureMainWindow()
         { key = "CITY", icon = 134414, lblKey = "AUTO_CTX_CITY" },
     }
     for idx, cd in ipairs(ctxDefs) do
-        CreateAutoRuleRow(autoPanel, -295 - (idx - 1) * 46, "CTX_" .. cd.key, cd.icon, self:L(cd.lblKey), function(val)
+        local cRow = CreateAutoRuleRow(autoPanel, -295 - (idx - 1) * 46, "CTX_" .. cd.key, cd.icon, self:L(cd.lblKey), function(val)
             local rules = addon:GetCharAutoRules()
             rules.contexts[cd.key] = val
             addon:RefreshAutoTitlePanel()
             addon:EvaluateAutoTitleRules("MANUAL")
         end)
+        cRow.lblKey = cd.lblKey
     end
 
     local rollNowBtn = CreateCollectorButton(autoPanel, 280, 30, self:L("AUTO_BTN_ROLL_FAV_NOW"), true)
@@ -1287,6 +1314,7 @@ function addon:EnsureMainWindow()
     setHeader:SetPoint("TOPLEFT", setPanel, "TOPLEFT", 16, -16)
     setHeader:SetTextColor(1.0, 0.85, 0.20, 1.0)
     setHeader:SetText(self:L("SET_HEADER"))
+    setPanel.setHeader = setHeader
 
     local setOptions = {
         { key = "hideUnobtainable",  lbl = "SET_HIDE_UNOBTAINABLE" },
@@ -1543,14 +1571,93 @@ function addon:EnsureMainWindow()
 end
 
 function addon:ApplyLocaleToStaticUI()
+    HideCollectorDropdown()
     if not ui.mainFrame then return end
-    ui.mainFrame.subFS:SetText(self:L("ADDON_SUBTITLE"))
+
+    -- 1. Шапка и вкладки
+    if ui.mainFrame.subFS then ui.mainFrame.subFS:SetText(self:L("ADDON_SUBTITLE")) end
+    if ui.mainFrame.langBtn then ui.mainFrame.langBtn:SetText(self:IsEnglish() and "EN" or "RU") end
+
     local tabKeys = {
         ALMOST = "TAB_ALMOST", ZONE = "TAB_ZONE", ALL = "TAB_ALL",
         COLLECTED = "TAB_COLLECTED", AUTOTITLE = "TAB_AUTOTITLE", SETTINGS = "TAB_SETTINGS",
     }
     for id, k in pairs(tabKeys) do
         if ui.tabButtons[id] then ui.tabButtons[id]:SetText(self:L(k)) end
+    end
+
+    -- 2. Фильтры левой панели каталога
+    if ui.expBtn then
+        if ui.filterExp == 0 then
+            ui.expBtn:SetText(self:L("FILTER_EXP_ALL"))
+        else
+            local eInfo = self.ExpansionNames[ui.filterExp]
+            ui.expBtn:SetText(eInfo and (self:IsEnglish() and eInfo.en or eInfo.ru) or ("Exp " .. tostring(ui.filterExp)))
+        end
+    end
+    if ui.diffBtn then
+        if ui.filterDiff == "ALL" then
+            ui.diffBtn:SetText(self:L("FILTER_DIFF_ALL"))
+        else
+            local dm = DIFF_META[ui.filterDiff]
+            ui.diffBtn:SetText(dm and self:L(dm.key) or ui.filterDiff)
+        end
+    end
+    if ui.catBtn then
+        ui.catBtn:SetText(ui.filterCat == "ALL" and self:L("FILTER_CAT_ALL") or self:L("CAT_" .. ui.filterCat))
+    end
+    if ui.affixBtn then
+        ui.affixBtn:SetText(self:L("FILTER_AFFIX_" .. (ui.filterAffix or "ALL")))
+    end
+    if ui.sortBtn then
+        ui.sortBtn:SetText(self:L("SORT_" .. (ui.sortBy or "PROGRESS")))
+    end
+    if ui.favFilterBtn then
+        ui.favFilterBtn:SetText(self:L("FILTER_ONLY_FAV"))
+    end
+
+    -- 3. Вкладка Авто-титулов (Auto-Titles)
+    if ui.autoPanel then
+        if ui.autoPanel.autoHeader then ui.autoPanel.autoHeader:SetText(self:L("AUTO_HEADER_TITLE")) end
+        if ui.autoPanel.masterCB and ui.autoPanel.masterCB.text then
+            ui.autoPanel.masterCB.text:SetText(self:L("AUTO_MASTER_ENABLE"))
+        end
+        if ui.autoPanel.masterDesc then ui.autoPanel.masterDesc:SetText(self:L("AUTO_MASTER_DESC")) end
+        if ui.autoPanel.rollNowBtn then ui.autoPanel.rollNowBtn:SetText(self:L("AUTO_BTN_ROLL_FAV_NOW")) end
+
+        for _, r in pairs(ui.autoRuleRows or {}) do
+            if r.setBtn then r.setBtn:SetText(self:L("AUTO_BTN_ASSIGN_SELECTED")) end
+            if r.favBtn then r.favBtn:SetText(self:L("AUTO_BTN_ASSIGN_FAV_RND")) end
+            if r.clrBtn then r.clrBtn:SetText(self:L("AUTO_BTN_CLEAR")) end
+            if r.lblKey and r.labelFS then r.labelFS:SetText(self:L(r.lblKey)) end
+        end
+        self:RefreshAutoTitlePanel()
+    end
+
+    -- 4. Вкладка Настроек (Settings)
+    if ui.settingsPanel then
+        if ui.settingsPanel.setHeader then ui.settingsPanel.setHeader:SetText(self:L("SET_HEADER")) end
+        for _, cb in pairs(ui.settingsPanel.checkboxes or {}) do
+            if cb.lblKey and cb.text then
+                cb.text:SetText(self:L(cb.lblKey))
+            end
+        end
+    end
+
+    -- 5. Правая панель — Инспектор выбранного звания
+    if ui.inspector then
+        local insp = ui.inspector
+        if insp.prevLbl then insp.prevLbl:SetText(self:L("INSP_PREVIEW_LABEL")) end
+        if insp.genderMBtn then insp.genderMBtn:SetText(self:L("INSP_GENDER_M")) end
+        if insp.genderFBtn then insp.genderFBtn:SetText(self:L("INSP_GENDER_F")) end
+        if insp.rarityGlobalLbl then insp.rarityGlobalLbl:SetText(self:L("RARITY_GLOBAL_LABEL")) end
+        if insp.progHeader then insp.progHeader:SetText(self:L("INSP_PROGRESS_HEADER")) end
+        if insp.onlyMissCB and insp.onlyMissCB.text then
+            insp.onlyMissCB.text:SetText(self:L("INSP_ONLY_MISSING_CRIT"))
+        end
+        if insp.waypointBtn then insp.waypointBtn:SetText(self:L("INSP_BTN_WAYPOINT")) end
+        if insp.openAchBtn then insp.openAchBtn:SetText(self:L("INSP_BTN_OPEN_ACH")) end
+        if insp.whBtn then insp.whBtn:SetText(self:L("INSP_BTN_WOWHEAD")) end
     end
 end
 
@@ -2082,8 +2189,10 @@ SlashCmdList["TITLECOLLECTOR"] = function(msg)
     local cmd = strtrim(string.lower(msg or ""))
     if cmd == "lang" or cmd == "ru" or cmd == "en" then
         addon.db.settings.language = addon:IsEnglish() and "ruRU" or "enUS"
+        addon:InvalidateProgressCache()
         addon:ApplyLocaleToStaticUI()
         addon:RefreshUI()
+        addon:ScheduleProgressScan("BASELINE")
     elseif cmd == "fav" or cmd == "random" then
         addon:EquipRandomFavorite(false)
     elseif cmd == "testalert" or cmd == "toast" then

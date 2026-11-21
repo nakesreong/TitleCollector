@@ -71,8 +71,19 @@ local function EvaluateSubAchievementFraction(subAchID)
     return doneWeight / numCrit, math.floor(doneWeight + 0.001), numCrit, subSteps
 end
 
+local EN_STANDING_LABELS = {
+    [1] = "Hated",
+    [2] = "Hostile",
+    [3] = "Unfriendly",
+    [4] = "Neutral",
+    [5] = "Friendly",
+    [6] = "Honored",
+    [7] = "Revered",
+    [8] = "Exalted",
+}
+
 -- Оценка прогресса фракции (Renown / MajorFaction или классическая репутация)
-local function EvaluateFactionProgress(factionID, reqStanding, reqRenown)
+local function EvaluateFactionProgress(factionID, reqStanding, reqRenown, title, isEN)
     if not factionID or factionID <= 0 then return nil end
 
     -- 1. Проверяем Major Faction (Известность Dragonflight / TWW / Midnight)
@@ -85,8 +96,12 @@ local function EvaluateFactionProgress(factionID, reqStanding, reqRenown)
             local thresh = (data.renownLevelThreshold and data.renownLevelThreshold > 0) and data.renownLevelThreshold or 2500
             local frac = math.min(1.0, (curRenown + (earned / thresh)) / math.max(1, targetRenown))
             local isDone = (curRenown >= targetRenown)
-            local name = (SafeNotSecret(data.name) and data.name) or ("Faction #" .. tostring(factionID))
-            local label = string.format("%s: Renown %d / %d", name, curRenown, targetRenown)
+            local dbFacName = title and (isEN and title.facName_en or title.facName_ru)
+            local name = (dbFacName and dbFacName ~= "" and dbFacName)
+                or (SafeNotSecret(data.name) and data.name)
+                or ("Faction #" .. tostring(factionID))
+            local renownWord = isEN and "Renown" or "Известность"
+            local label = string.format("%s: %s %d / %d", name, renownWord, curRenown, targetRenown)
             return {
                 pct = isDone and 100.0 or (frac * 100.0),
                 completed = isDone,
@@ -111,9 +126,16 @@ local function EvaluateFactionProgress(factionID, reqStanding, reqRenown)
             local baseStages = math.max(1, targetReaction - 4)
             local curStage = math.max(0, reaction - 4) + stageFrac
             local totalPct = isDone and 100.0 or math.min(99.0, (curStage / baseStages) * 100.0)
-            local fname = (SafeNotSecret(fdata.name) and fdata.name) or ("Faction #" .. tostring(factionID))
-            local standingLabel = _G["FACTION_STANDING_LABEL" .. tostring(reaction)] or tostring(reaction)
-            local targetLabel = _G["FACTION_STANDING_LABEL" .. tostring(targetReaction)] or "Exalted"
+            local dbFacName = title and (isEN and title.facName_en or title.facName_ru)
+            local fname = (dbFacName and dbFacName ~= "" and dbFacName)
+                or (SafeNotSecret(fdata.name) and fdata.name)
+                or ("Faction #" .. tostring(factionID))
+            local standingLabel = isEN
+                and (EN_STANDING_LABELS[reaction] or tostring(reaction))
+                or (_G["FACTION_STANDING_LABEL" .. tostring(reaction)] or tostring(reaction))
+            local targetLabel = isEN
+                and (EN_STANDING_LABELS[targetReaction] or "Exalted")
+                or (_G["FACTION_STANDING_LABEL" .. tostring(targetReaction)] or "Exalted")
             return {
                 pct = totalPct,
                 completed = isDone,
@@ -161,6 +183,9 @@ function addon:EvaluateTitleProgress(title, forceRefresh, summaryOnly)
     local doneCount = 0
     local totalCount = 0
 
+    local isEN = self:IsEnglish()
+    local clientIsNonEN = ((GetLocale and GetLocale() or "enUS") == "ruRU")
+
     -- 1. Достижение и его критерии (включая Мета-ачивки)
     if title.achID and title.achID > 0 and _G.GetAchievementInfo then
         local okA, _, achName, _, achCompleted, _, _, _, achDesc = pcall(GetAchievementInfo, title.achID)
@@ -180,16 +205,27 @@ function addon:EvaluateTitleProgress(title, forceRefresh, summaryOnly)
                                 cText = subName
                             end
                         end
-                        if subAchID and SUB_ACH_NAME_FIXES_RU[subAchID] and not self:IsEnglish() then
+                        if isEN and clientIsNonEN then
+                            if subAchID and self.TitlesByAchID and self.TitlesByAchID[subAchID] and self.TitlesByAchID[subAchID].achName_en then
+                                cText = self.TitlesByAchID[subAchID].achName_en
+                            elseif numCrit == 1 and title.achName_en and title.achName_en ~= "" then
+                                cText = title.achName_en
+                            end
+                        end
+                        if subAchID and SUB_ACH_NAME_FIXES_RU[subAchID] and not isEN then
                             cText = SUB_ACH_NAME_FIXES_RU[subAchID]
-                        elseif cText and (title.exp or 0) >= 11 and string.find(cText, "Турне чемпиона: Драконьи острова", 1, true) then
+                        elseif not isEN and cText and (title.exp or 0) >= 11 and string.find(cText, "Турне чемпиона: Драконьи острова", 1, true) then
                             cText = "Турне чемпиона: Каз Алгар"
+                        elseif isEN and subAchID == 40088 then
+                            cText = "A Champion's Tour: The War Within"
                         end
                         -- Если у ачивки 1 скрытый критерий без текста, а у звания уже задана factionID, не дублируем пустой "Step #1"
                         if not cText and numCrit == 1 and title.factionID and title.factionID > 0 then
                             cText = nil
                         elseif not cText and numCrit == 1 then
-                            cText = (SafeNotSecret(achName) and achName) or ("Step #" .. tostring(i))
+                            cText = (isEN and title.achName_en and title.achName_en ~= "" and title.achName_en)
+                                or (SafeNotSecret(achName) and achName)
+                                or ("Step #" .. tostring(i))
                         else
                             cText = cText or ("Step #" .. tostring(i))
                         end
@@ -250,8 +286,13 @@ function addon:EvaluateTitleProgress(title, forceRefresh, summaryOnly)
                     doneCount = 1
                     earnedWeight = 1.0
                 end
-                local cleanAch = (SafeNotSecret(achName) and achName) or self:GetTitleCleanName(title)
-                local cleanDesc = (SafeNotSecret(achDesc) and achDesc and achDesc ~= "") and (" — " .. achDesc) or ""
+                local cleanAch = (isEN and title.achName_en and title.achName_en ~= "" and title.achName_en)
+                    or (SafeNotSecret(achName) and achName)
+                    or self:GetTitleCleanName(title)
+                local rawDesc = (isEN and title.achDesc_en and title.achDesc_en ~= "" and title.achDesc_en)
+                    or (SafeNotSecret(achDesc) and achDesc)
+                    or ""
+                local cleanDesc = (rawDesc ~= "") and (" — " .. rawDesc) or ""
                 table.insert(criteria, {
                     index = 1,
                     text = cleanAch .. cleanDesc,
@@ -266,7 +307,7 @@ function addon:EvaluateTitleProgress(title, forceRefresh, summaryOnly)
 
     -- 2. Репутация / Известность (если задана factionID)
     if title.factionID and title.factionID > 0 then
-        local fProg = EvaluateFactionProgress(title.factionID, title.reqStanding, title.reqRenown)
+        local fProg = EvaluateFactionProgress(title.factionID, title.reqStanding, title.reqRenown, title, isEN)
         if fProg then
             totalCount = totalCount + 1
             totalWeight = totalWeight + 1.0

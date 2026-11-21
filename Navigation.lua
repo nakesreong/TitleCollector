@@ -148,9 +148,12 @@ function addon:BuildMultiHopRoute(targetMapID, targetX, targetY, targetName, tar
         return steps
     end
 
+    local isEN       = self:IsEnglish()
     local isAlliance = (UnitFactionGroup("player") == "Alliance")
     local capMapID   = isAlliance and 84 or 85
-    local capName    = isAlliance and "Зал порталов Штормграда" or "Зал порталов Оргриммара"
+    local capName    = isEN
+        and (isAlliance and "Stormwind Portal Room" or "Orgrimmar Portal Room")
+        or (isAlliance and "Зал порталов Штормграда" or "Зал порталов Оргриммара")
     local capX       = isAlliance and 48.7 or 57.3
     local capY       = isAlliance and 88.1 or 89.7
     local capRegion  = isAlliance and "EASTERN_KINGDOMS" or "KALIMDOR"
@@ -158,40 +161,55 @@ function addon:BuildMultiHopRoute(targetMapID, targetX, targetY, targetName, tar
     if playerRegion == "HARANDAR" then
         table.insert(steps, {
             mapID = 2413, x = 53.3, y = 55.5, subMapID = 2576, subX = 64.5, subY = 71.4,
-            zone = "Харандар (Логово)", note = "Корнистый путь в леса Вечной Песни / Луносвет",
+            zone = isEN and "Harandar (The Den)" or "Харандар (Логово)",
+            note = isEN and "Rootway to Eversong Woods / Silvermoon" or "Корнистый путь в леса Вечной Песни / Луносвет",
         })
         if targetRegion ~= "MIDNIGHT_QUELTHALAS" then
             table.insert(steps, {
                 mapID = 2395, x = isAlliance and 52.6 or 52.5, y = isAlliance and 25.5 or 25.7,
                 subMapID = 2393, subX = isAlliance and 52.6 or 52.2, subY = isAlliance and 64.5 or 65.2,
-                zone = "Луносвет", note = isAlliance and "Зал с порталами Луносвета: Портал в Штормград" or "Зал с порталами Луносвета: Портал в Оргриммар",
+                zone = isEN and "Silvermoon City" or "Луносвет",
+                note = isEN
+                    and (isAlliance and "Silvermoon Portal Room: Portal to Stormwind" or "Silvermoon Portal Room: Portal to Orgrimmar")
+                    or (isAlliance and "Зал с порталами Луносвета: Портал в Штормград" or "Зал с порталами Луносвета: Портал в Оргриммар"),
             })
         end
     elseif playerRegion == "MIDNIGHT_QUELTHALAS" then
         table.insert(steps, {
             mapID = 2395, x = isAlliance and 52.6 or 52.5, y = isAlliance and 25.5 or 25.7,
             subMapID = 2393, subX = isAlliance and 52.6 or 52.2, subY = isAlliance and 64.5 or 65.2,
-            zone = "Луносвет", note = isAlliance and "Зал с порталами Луносвета: Портал в Штормград" or "Зал с порталами Луносвета: Портал в Оргриммар",
+            zone = isEN and "Silvermoon City" or "Луносвет",
+            note = isEN
+                and (isAlliance and "Silvermoon Portal Room: Portal to Stormwind" or "Silvermoon Portal Room: Portal to Orgrimmar")
+                or (isAlliance and "Зал с порталами Луносвета: Портал в Штормград" or "Зал с порталами Луносвета: Портал в Оргриммар"),
         })
     elseif playerRegion == "KHAZ_ALGAR" then
         table.insert(steps, {
-            mapID = 2339, x = 41.9, y = 28.3, zone = "Дорногал",
-            note = isAlliance and "Комната порталов Дорногала: Портал в Штормград" or "Комната порталов Дорногала: Портал в Оргриммар",
+            mapID = 2339, x = 41.9, y = 28.3,
+            zone = isEN and "Dornogal" or "Дорногал",
+            note = isEN
+                and (isAlliance and "Dornogal Portal Room: Portal to Stormwind" or "Dornogal Portal Room: Portal to Orgrimmar")
+                or (isAlliance and "Комната порталов Дорногала: Портал в Штормград" or "Комната порталов Дорногала: Портал в Оргриммар"),
         })
     elseif playerRegion == "DRAGON_ISLES" then
         table.insert(steps, {
-            mapID = 2112, x = 57.9, y = 35.3, zone = "Вальдраккен",
-            note = "Престол Аспектов (Вальдраккен): Портал в столицу",
+            mapID = 2112, x = 57.9, y = 35.3,
+            zone = isEN and "Valdrakken" or "Вальдраккен",
+            note = isEN and "Seat of the Aspects (Valdrakken): Capital Portal" or "Престол Аспектов (Вальдраккен): Портал в столицу",
         })
     elseif playerRegion == "SHADOWLANDS" then
         table.insert(steps, {
-            mapID = 1670, x = 22.4, y = 50.2, zone = "Орибос",
-            note = "Портал в столицу (Кольцо Судеб, Орибос)",
+            mapID = 1670, x = 22.4, y = 50.2,
+            zone = isEN and "Oribos" or "Орибос",
+            note = isEN and "Ring of Fates (Oribos): Capital Portal" or "Портал в столицу (Кольцо Судеб, Орибос)",
         })
     elseif playerRegion == "PANDARIA" then
         table.insert(steps, {
-            mapID = 371, x = isAlliance and 46.2 or 28.5, y = isAlliance and 85.2 or 14.0, zone = "Нефритовый лес",
-            note = isAlliance and "Портал в Штормград (Деревня Лап'дон)" or "Портал в Оргриммар (Деревня Медовой Росы)",
+            mapID = 371, x = isAlliance and 46.2 or 28.5, y = isAlliance and 85.2 or 14.0,
+            zone = isEN and "The Jade Forest" or "Нефритовый лес",
+            note = isEN
+                and (isAlliance and "Portal to Stormwind (Paw'don Village)" or "Portal to Orgrimmar (Honeydew Village)")
+                or (isAlliance and "Портал в Штормград (Деревня Лап'дон)" or "Портал в Оргриммар (Деревня Медовой Росы)"),
         })
     end
 
@@ -200,8 +218,8 @@ function addon:BuildMultiHopRoute(targetMapID, targetX, targetY, targetName, tar
         if not skipCapStep then
             table.insert(steps, {
                 mapID = capMapID, x = capX, y = capY,
-                zone = isAlliance and "Штормград" or "Оргриммар",
-                note = capName .. " -> Портал в целевой континент",
+                zone = isEN and (isAlliance and "Stormwind City" or "Orgrimmar") or (isAlliance and "Штормград" or "Оргриммар"),
+                note = capName .. (isEN and " -> Portal to destination continent" or " -> Портал в целевой континент"),
             })
         end
     end
@@ -209,7 +227,8 @@ function addon:BuildMultiHopRoute(targetMapID, targetX, targetY, targetName, tar
     if targetRegion == "HARANDAR" and playerRegion ~= "HARANDAR" then
         table.insert(steps, {
             mapID = 2395, x = 47.9, y = 26.6, subMapID = 2393, subX = 36.7, subY = 68.2,
-            zone = "Луносвет (Сады Памяти)", note = "Корнистый путь в Харандар (36.7, 68.2)",
+            zone = isEN and "Silvermoon (Memorial Gardens)" or "Луносвет (Сады Памяти)",
+            note = isEN and "Rootway to Harandar (36.7, 68.2)" or "Корнистый путь в Харандар (36.7, 68.2)",
         })
     end
 
