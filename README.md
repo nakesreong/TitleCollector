@@ -5,6 +5,11 @@
 **Source Repository:** [https://github.com/nakesreong/TitleCollector](https://github.com/nakesreong/TitleCollector)  
 **License:** Attribution-NonCommercial-ShareAlike 4.0 International (CC BY-NC-SA 4.0)
 
+> **Explore Our Companion Collector & UI Addons:**
+> *   [**MountCollector**](https://www.curseforge.com/wow/addons/mountcollector) — Open-World Rare Radar, World Boss & Dungeon Alt Lockout Matrix, 54 Quest Chains, Glory Meta-Tracker & Real Mount Rarity
+> *   [**BeastCollector**](https://www.curseforge.com/wow/addons/beastcollector) — 3D Hunter Pet Wardrobe (2,635 Looks across 61 Families), 11 Taming Tomes Tracker & Quest-Exclusive Beast Alert Radar
+> *   [**MAWM (Make Azeroth's World Map)**](https://www.curseforge.com/wow/addons/mawm) — Restored 4K World Map Continents, Interactive Harbor/Zeppelin Routes & Clean Map Exploration
+
 ***
 
 ## Overview

@@ -16,6 +16,7 @@
 ## SavedVariables: TitleCollectorDB
 ## OptionalDeps: TomTom, ElvUI
 ## IconTexture: 237537
+## X-Curse-Project-ID: 1820165
 
 Libs\LibStub\LibStub.lua
 Libs\CallbackHandler-1.0\CallbackHandler-1.0.lua
