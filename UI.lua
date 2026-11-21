@@ -424,7 +424,7 @@ function addon:RefreshInspector()
 
     -- Живой предпросмотр над головой персонажа
     local classHex = GetPlayerClassColorHex()
-    local playerName = classHex .. (UnitName("player") or (self:IsEnglish() and "Hero" or "Герой")) .. "|r"
+    local playerName = classHex .. self:FormatPreviewPlayerName(UnitName("player")) .. "|r"
     local formattedPreview = self:FormatTitleWithPlayerName(t, playerName, ui.previewFemale)
     insp.previewFS:SetText(formattedPreview)
 
@@ -1387,7 +1387,7 @@ function addon:EnsureMainWindow()
     prevLbl:SetText(self:L("INSP_PREVIEW_LABEL"))
     insp.prevLbl = prevLbl
 
-    local genderFBtn = CreateCollectorButton(prevBox, 48, 18, self:L("INSP_GENDER_F"), false)
+    local genderFBtn = CreateCollectorButton(prevBox, 58, 18, self:L("INSP_GENDER_F"), false)
     genderFBtn:SetPoint("TOPRIGHT", prevBox, "TOPRIGHT", -6, -4)
     genderFBtn:SetScript("OnClick", function()
         ui.previewFemale = true
@@ -1395,7 +1395,7 @@ function addon:EnsureMainWindow()
     end)
     insp.genderFBtn = genderFBtn
 
-    local genderMBtn = CreateCollectorButton(prevBox, 48, 18, self:L("INSP_GENDER_M"), false)
+    local genderMBtn = CreateCollectorButton(prevBox, 50, 18, self:L("INSP_GENDER_M"), false)
     genderMBtn:SetPoint("RIGHT", genderFBtn, "LEFT", -4, 0)
     genderMBtn:SetScript("OnClick", function()
         ui.previewFemale = false
