@@ -244,6 +244,76 @@ local function GetPlayerClassColorHex()
     return "|cff00ff96"
 end
 
+local function ResolveTitleIcon(t)
+    if not t then return "Interface\\ICONS\\INV_Crown_01" end
+    if t.icon then return t.icon end
+    if t.currencyID and C_CurrencyInfo and C_CurrencyInfo.GetCurrencyInfo then
+        local ok, cInfo = pcall(C_CurrencyInfo.GetCurrencyInfo, t.currencyID)
+        if ok and cInfo and addon.SafeNotSecret(cInfo.iconFileID) and cInfo.iconFileID then
+            t.icon = cInfo.iconFileID
+            return t.icon
+        end
+    end
+    if t.itemID and C_Item and C_Item.GetItemIconByID then
+        local ok, iconID = pcall(C_Item.GetItemIconByID, t.itemID)
+        if ok and addon.SafeNotSecret(iconID) and iconID then
+            t.icon = iconID
+            return t.icon
+        end
+    end
+    return "Interface\\ICONS\\INV_Crown_01"
+end
+
+local function FormatTitleVendorCost(self, t)
+    if not t then return nil end
+    local isEN = self:IsEnglish()
+    local clientIsNonEN = ((GetLocale and GetLocale() or "enUS") == "ruRU")
+    local parts = {}
+
+    if t.currencyID and t.currencyCost and t.currencyCost > 0 then
+        local cName = nil
+        local cIcon = nil
+        if C_CurrencyInfo and C_CurrencyInfo.GetCurrencyInfo then
+            local ok, cInfo = pcall(C_CurrencyInfo.GetCurrencyInfo, t.currencyID)
+            if ok and cInfo then
+                if addon.SafeNotSecret(cInfo.name) and type(cInfo.name) == "string" and cInfo.name ~= "" then
+                    cName = cInfo.name
+                end
+                if addon.SafeNotSecret(cInfo.iconFileID) and cInfo.iconFileID then
+                    cIcon = cInfo.iconFileID
+                end
+            end
+        end
+        if isEN and clientIsNonEN and t.currencyID == 1166 then
+            cName = "Timewarped Badge"
+        elseif not isEN and not clientIsNonEN and t.currencyID == 1166 then
+            cName = "Искаженный временем знак"
+        end
+        cName = cName or ("Currency #" .. tostring(t.currencyID))
+        local icTag = cIcon and string.format("|T%s:13:13:0:0|t ", tostring(cIcon)) or ""
+        table.insert(parts, string.format("%d %s%s", t.currencyCost, icTag, cName))
+    end
+
+    if t.itemID and t.itemCost and t.itemCost > 0 then
+        local iName = (isEN and t.itemName_en and t.itemName_en ~= "" and t.itemName_en)
+            or (not isEN and t.itemName_ru and t.itemName_ru ~= "" and t.itemName_ru)
+            or (C_Item and C_Item.GetItemNameByID and C_Item.GetItemNameByID(t.itemID))
+            or ("Item #" .. tostring(t.itemID))
+        local iIcon = C_Item and C_Item.GetItemIconByID and C_Item.GetItemIconByID(t.itemID)
+        local icTag = (addon.SafeNotSecret(iIcon) and iIcon) and string.format("|T%s:13:13:0:0|t ", tostring(iIcon)) or ""
+        table.insert(parts, string.format("%d %s%s", t.itemCost, icTag, iName))
+    end
+
+    if t.goldCost and t.goldCost > 0 then
+        table.insert(parts, string.format("%d |TInterface\\MoneyFrame\\UI-GoldIcon:12:12:2:0|t", t.goldCost))
+    end
+
+    if #parts > 0 then
+        return table.concat(parts, " + ")
+    end
+    return nil
+end
+
 -- ============================================================================
 -- ФИЛЬТРАЦИЯ И СОРТИРОВКА СПИСКА ЗВАНИЙ
 -- ============================================================================
@@ -251,6 +321,9 @@ local function MatchesCategoryFilter(title, filterCat)
     if not filterCat or filterCat == "ALL" then return true end
     local c = string.upper(title.cat or "")
     local k = string.upper(title.kind or "")
+    if filterCat == "VENDOR" then
+        return c == "VENDOR" or (title.currencyID ~= nil) or (title.itemID ~= nil) or (title.goldCost ~= nil)
+    end
     if filterCat == "RAID" then return c == "RAID" end
     if filterCat == "DUNGEON" then return c == "DUNGEON" end
     if filterCat == "PVP" then return c == "PVP" or k == "PVP RANK" end
@@ -322,13 +395,15 @@ function addon:RebuildFilteredTitles()
             end
         end
 
-        -- Текстовый поиск (RU + EN название, ачивка, зона, подсказка)
+        -- Текстовый поиск (RU + EN название, ачивка, торговец, зона, подсказка)
         if pass and searchLow ~= "" then
             local blob = string.lower(table.concat({
                 t.clean_ru or "",
                 t.clean_en or "",
                 t.achName_ru or "",
                 t.achName_en or "",
+                t.vendor_ru or "",
+                t.vendor_en or "",
                 t.zone_ru or "",
                 t.zone_en or "",
                 t.note_ru or "",
@@ -413,7 +488,7 @@ function addon:RefreshInspector()
     local diffMeta = DIFF_META[t.difficulty or "SOLO_GRIND"] or DIFF_META.SOLO_GRIND
 
     local isPref = self:IsTitlePrefix(t, ui.previewFemale)
-    insp.iconTex:SetTexture(t.icon or "Interface\\ICONS\\INV_Crown_01")
+    insp.iconTex:SetTexture(ResolveTitleIcon(t))
     insp.titleFS:SetText((isCol and "|cff00ff96" or "|cffffd100") .. cleanName .. "|r")
     insp.subMetaFS:SetText(string.format(
         "%s%s|r • |cff88ccff%s|r • %s%s|r",
@@ -527,6 +602,16 @@ function addon:RefreshInspector()
         local qName = (self:IsEnglish() and t.questName_en or t.questName_ru) or ("#" .. tostring(t.questID))
         table.insert(srcLines, self:L("INSP_SOURCE_QUEST_FMT", qName, t.questID))
     end
+    local vName = self:IsEnglish()
+        and ((t.vendor_en and t.vendor_en ~= "" and t.vendor_en) or t.vendor_ru)
+        or ((t.vendor_ru and t.vendor_ru ~= "" and t.vendor_ru) or t.vendor_en)
+    if vName and vName ~= "" then
+        table.insert(srcLines, self:L("INSP_SOURCE_VENDOR_FMT", vName))
+    end
+    local costStr = FormatTitleVendorCost(self, t)
+    if costStr then
+        table.insert(srcLines, self:L("INSP_PRICE_FMT", costStr))
+    end
     local zName = self:GetTitleZoneName(t)
     if zName ~= "" then
         local coordStr = (t.x and t.y) and string.format(" (%.1f, %.1f)", t.x, t.y) or ""
@@ -579,7 +664,7 @@ function addon:RefreshListRows()
             local isEquipped = (curActiveMask == t.maskID)
 
             row.favBtn.tex:SetVertexColor(isFav and 1.0 or 0.35, isFav and 0.85 or 0.35, isFav and 0.15 or 0.35, 1.0)
-            row.iconTex:SetTexture(t.icon or "Interface\\ICONS\\INV_Crown_01")
+            row.iconTex:SetTexture(ResolveTitleIcon(t))
 
             local cleanName = self:GetTitleCleanName(t)
             local eqBadge = isEquipped and (" |cff00ff96" .. self:L("ROW_EQUIPPED_BADGE") .. "|r") or ""
@@ -995,7 +1080,7 @@ function addon:EnsureMainWindow()
     ui.diffBtn = diffBtn
 
     -- Вторая строка мини-фильтров (Категория, Префикс/Суффикс, Сортировка, Избранные)
-    local catOrder = { "ALL", "ACHIEVEMENT", "RAID", "DUNGEON", "REPUTATION", "QUEST", "EXPLORATION", "PVP", "HOLIDAY", "PROFESSION" }
+    local catOrder = { "ALL", "VENDOR", "ACHIEVEMENT", "RAID", "DUNGEON", "REPUTATION", "QUEST", "EXPLORATION", "PVP", "HOLIDAY", "PROFESSION" }
     local catBtn = CreateCollectorButton(catCont, 145, 22, self:L("FILTER_CAT_ALL"), false)
     catBtn:SetPoint("TOPLEFT", searchBox, "BOTTOMLEFT", 0, -5)
     catBtn:SetScript("OnClick", function(selfBtn, button)
@@ -1343,6 +1428,9 @@ function addon:EnsureMainWindow()
                 addon:SetupRoundMinimapButton()
             else
                 addon.db.settings[opt.key] = checked
+                if opt.key == "showCharPaneButton" and addon.charPaneBtn then
+                    addon.charPaneBtn:SetShown(checked)
+                end
             end
             addon:RefreshUI()
         end)
@@ -1673,19 +1761,117 @@ function addon:ToggleMainWindow()
 end
 
 -- ============================================================================
--- КНОПКА В СТАНДАРТНОМ ОКНЕ ЗВАНИЙ ПЕРСОНАЖА (PaperDollTitlesPane)
+-- КНОПКА И ТУЛТИПЫ СТРОК В ОКНЕ ЗВАНИЙ ПЕРСОНАЖА (PaperDollTitlesPane)
 -- ============================================================================
-function addon:HookCharacterTitlesPane()
-    if self.charPaneHooked or not _G.PaperDollTitlesPane then return end
-    self.charPaneHooked = true
+local function SetupCharacterTitleRowHook(button)
+    if not button or button._tcRowHooked then return end
+    button._tcRowHooked = true
 
-    local btn = CreateCollectorButton(_G.PaperDollTitlesPane, 136, 22, "|cffffd100Title|r|cff00ccffCollector|r", true)
-    btn:SetPoint("BOTTOM", _G.PaperDollTitlesPane, "TOP", 0, 4)
-    btn:SetFrameLevel((_G.PaperDollTitlesPane:GetFrameLevel() or 10) + 10)
-    btn:SetScript("OnClick", function()
-        addon:ToggleMainWindow()
+    button:HookScript("OnEnter", function(selfBtn)
+        if not addon.db or not addon.db.settings or not addon.db.settings.showPlayerTooltips then return end
+        local maskID = selfBtn.titleId
+        if not maskID and selfBtn.GetElementData then
+            local elem = selfBtn:GetElementData()
+            if type(elem) == "table" and type(elem.index) == "number" then
+                maskID = elem.index
+            end
+        end
+        if not addon.SafeNotSecret(maskID) or type(maskID) ~= "number" or maskID <= 0 then return end
+
+        local titleObj = addon.TitleByMaskID[maskID]
+        if not titleObj or not GameTooltip then return end
+
+        GameTooltip:SetOwner(selfBtn, "ANCHOR_RIGHT")
+        local cleanName = addon:GetTitleCleanName(titleObj)
+        local expInfo = addon.ExpansionNames[titleObj.exp or 1] or addon.ExpansionNames[1]
+        local expName = addon:IsEnglish() and expInfo.en or expInfo.ru
+        local isPref = addon:IsTitlePrefix(titleObj)
+        local affixText = isPref and addon:L("INSP_AFFIX_PREFIX") or addon:L("INSP_AFFIX_SUFFIX")
+
+        GameTooltip:AddDoubleLine(
+            addon:L("TT_PLAYER_TITLE_HDR") .. " |cffffd100" .. cleanName .. "|r",
+            expInfo.color .. expName .. "|r"
+        )
+        GameTooltip:AddLine("   |cff88ccff" .. affixText .. "|r", 0.7, 0.85, 1.0)
+
+        if addon.db.settings.showGlobalRarity then
+            local gPct = addon:GetGlobalRarity(titleObj)
+            local pctText, tierLabel = addon:FormatRarityTier(gPct)
+            GameTooltip:AddLine(addon:L("TT_RARITY_FMT", pctText, tierLabel), 0.92, 0.92, 0.95)
+        end
+
+        if addon.db.settings.showServerRarity then
+            local dispRealm, realmPop, estOwners, seenCount = addon:GetServerRarityInfo(titleObj)
+            local srvLbl = addon:L("RARITY_SERVER_LABEL_FMT", dispRealm)
+            local srvVal = estOwners
+                and addon:L("RARITY_SERVER_VAL_FMT", estOwners, realmPop, seenCount)
+                or addon:L("RARITY_SERVER_SEEN_ONLY_FMT", seenCount)
+            GameTooltip:AddLine("   |cffffd100" .. srvLbl .. "|r " .. srvVal, 0.90, 0.90, 0.94)
+        end
+
+        local srcName = (addon:IsEnglish() and (titleObj.vendor_en or titleObj.achName_en or titleObj.questName_en))
+            or (not addon:IsEnglish() and (titleObj.vendor_ru or titleObj.achName_ru or titleObj.questName_ru))
+            or titleObj.cat
+        if srcName and srcName ~= "" then
+            GameTooltip:AddLine(addon:L("TT_SOURCE_FMT", srcName), 0.85, 0.88, 0.95, true)
+        end
+
+        local costStr = FormatTitleVendorCost(addon, titleObj)
+        if costStr then
+            GameTooltip:AddLine("   " .. addon:L("INSP_PRICE_FMT", costStr), 0.85, 0.95, 0.88, true)
+        end
+
+        local note = addon:GetTitleNote(titleObj)
+        if note and note ~= "" then
+            GameTooltip:AddLine("   |cffbbbbbb" .. note .. "|r", 0.75, 0.75, 0.78, true)
+        end
+
+        GameTooltip:Show()
     end)
-    self.charPaneBtn = btn
+
+    button:HookScript("OnLeave", function(selfBtn)
+        if GameTooltip and GameTooltip:IsOwned(selfBtn) then
+            GameTooltip:Hide()
+        end
+    end)
+end
+
+function addon:HookCharacterTitlesPane()
+    local pane = _G.PaperDollTitlesPane
+    if not pane then return end
+
+    if not self.charPaneBtn then
+        local btn = CreateCollectorButton(pane, 136, 22, "|cffffd100Title|r|cff00ccffCollector|r", true)
+        btn:SetPoint("BOTTOM", pane, "TOP", 0, 4)
+        btn:SetFrameLevel((pane:GetFrameLevel() or 10) + 10)
+        btn:SetScript("OnClick", function()
+            addon:ToggleMainWindow()
+        end)
+        self.charPaneBtn = btn
+    end
+    self.charPaneBtn:SetShown(not self.db or not self.db.settings or self.db.settings.showCharPaneButton ~= false)
+
+    if not self.charPaneRowsHooked then
+        if pane.ScrollBox then
+            self.charPaneRowsHooked = true
+            hooksecurefunc(pane.ScrollBox, "Update", function(scrollBox)
+                if not scrollBox.ForEachFrame then return end
+                scrollBox:ForEachFrame(function(button)
+                    SetupCharacterTitleRowHook(button)
+                end)
+            end)
+            if pane.ScrollBox.ForEachFrame then
+                pane.ScrollBox:ForEachFrame(function(button)
+                    SetupCharacterTitleRowHook(button)
+                end)
+            end
+        elseif pane.buttons then
+            self.charPaneRowsHooked = true
+            for _, b in ipairs(pane.buttons) do
+                SetupCharacterTitleRowHook(b)
+            end
+        end
+    end
 end
 
 -- ============================================================================
@@ -2178,7 +2364,7 @@ function addon:TriggerProgressToast(title, prog, isUnlocked, forceTest)
 
     local f = self:EnsureProgressToastFrame()
     f.title = title
-    f.iconTex:SetTexture(title.icon or 237537)
+    f.iconTex:SetTexture(ResolveTitleIcon(title))
     f.headerFS:SetText("|T237537:13:13:0:0|t TitleCollector — " .. (isUnlocked and self:L("TOAST_HEADER_UNLOCKED") or self:L("TOAST_HEADER_PROGRESS")))
     f.nameFS:SetText(self:GetTitleCleanName(title))
 
@@ -2248,6 +2434,8 @@ eventFrame:RegisterEvent("CRITERIA_UPDATE")
 eventFrame:RegisterEvent("QUEST_TURNED_IN")
 eventFrame:RegisterEvent("UPDATE_FACTION")
 eventFrame:RegisterEvent("MAJOR_FACTION_RENOWN_LEVEL_CHANGED")
+eventFrame:RegisterEvent("CURRENCY_DISPLAY_UPDATE")
+eventFrame:RegisterEvent("BAG_UPDATE_DELAYED")
 eventFrame:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED")
 eventFrame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
 eventFrame:RegisterEvent("ZONE_CHANGED_INDOORS")
@@ -2288,7 +2476,7 @@ eventFrame:SetScript("OnEvent", function(_, event, arg1)
     elseif event == "ACHIEVEMENT_EARNED" then
         local earnedID = (addon.SafeNotSecret(arg1) and type(arg1) == "number") and arg1 or nil
         addon:ScheduleProgressScan("DELTA", earnedID)
-    elseif event == "CRITERIA_UPDATE" or event == "QUEST_TURNED_IN" or event == "UPDATE_FACTION" or event == "MAJOR_FACTION_RENOWN_LEVEL_CHANGED" then
+    elseif event == "CRITERIA_UPDATE" or event == "QUEST_TURNED_IN" or event == "UPDATE_FACTION" or event == "MAJOR_FACTION_RENOWN_LEVEL_CHANGED" or event == "CURRENCY_DISPLAY_UPDATE" or event == "BAG_UPDATE_DELAYED" then
         addon:ScheduleProgressScan("DELTA")
     elseif event == "USER_WAYPOINT_UPDATED" then
         if addon.OnUserWaypointUpdated then

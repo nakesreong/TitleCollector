@@ -6,9 +6,10 @@
 **License:** Attribution-NonCommercial-ShareAlike 4.0 International (CC BY-NC-SA 4.0)
 
 > **Explore Our Companion Collector & UI Addons:**
-> *   [**MountCollector**](https://www.curseforge.com/wow/addons/mountcollector) — Open-World Rare Radar, World Boss & Dungeon Alt Lockout Matrix, 54 Quest Chains, Glory Meta-Tracker & Real Mount Rarity
+> *   [**MountCollector**](https://www.curseforge.com/wow/addons/mountcollector) — Open-World Rare Radar, World Boss & Dungeon Alt Lockout Matrix, 501 Vendor Mounts, 54 Quest Chains, Glory Meta-Tracker & Real Mount Rarity
 > *   [**BeastCollector**](https://www.curseforge.com/wow/addons/beastcollector) — 3D Hunter Pet Wardrobe (2,635 Looks across 61 Families), 11 Taming Tomes Tracker & Quest-Exclusive Beast Alert Radar
 > *   [**MAWM (Make Azeroth's World Map)**](https://www.curseforge.com/wow/addons/mawm) — Restored 4K World Map Continents, Interactive Harbor/Zeppelin Routes & Clean Map Exploration
+> *   [**SpArc**](https://www.curseforge.com/wow/addons/sparc) — Taint-Safe Radial HUD Arcs, Hybrid 12.x DoT/Aura Nameplates & ActionCam Cursor Unlocker
 
 ***
 
@@ -17,8 +18,8 @@
 **TitleCollector** is a modular player title collection, live progression roadmap, real rarity encyclopedia, and multi-hop portal navigation suite for World of Warcraft. It transforms player titles from a tiny, buried Character Pane dropdown into an interactive progression journal—unifying fractional 2-level meta-achievement and Renown checklists, global and realm rarity statistics, open-world zone filtering, and optional per-specialization title automation into a sleek dark-gold UI modeled after **MountCollector** and **BeastCollector**.
 
 *   **"Almost Done" Completionist Roadmap:** Automatically evaluates your live completion percentage (`0%–99%`) across all uncollected titles and sorts your closest wins to the top, tagged by practical solo/group difficulty (*Solo Quick Win*, *Solo Legacy Raid*, *Solo Grind / Rep*, *Group / Current*, *PvP / Rated*, and *Unobtainable Legacy*).
-*   **Deep 2-Level Meta-Achievement, Renown & Quest Progress Engine:** Calculates real-time progress across quantitative criteria (`[3/5]`), Warband Major Faction Renown (`C_MajorFactions`), Classic Reputations (`C_Reputation`), and Quest chains (`C_QuestLog`), automatically expanding incomplete sub-achievements inside two-tier meta-achievements into a scrollable step-by-step checklist.
-*   **Global & Realm Rarity Census:** Integrates **Data for Azeroth** global Armory ownership percentages across **688 titles** (`TitlesDB-1.0`) with realm population ownership estimates, tier-colored rarity badges, and a lightweight passive open-world player title scanner (`RealmCensus`).
+*   **Deep 2-Level Meta-Achievement, Renown, Quest & Vendor Currency Engine:** Calculates real-time progress across quantitative criteria (`[3/5]`), Warband Major Faction Renown (`C_MajorFactions`), Classic Reputations (`C_Reputation`), Quest chains (`C_QuestLog`), and **Vendor Currencies / Items / Gold** (*Timewarped Badges*, *Barter Boulders*, *Trial of Style Tokens*, *Shattered Sun Gold* — flagging `[Ready to buy!]` titles automatically at the top of **Almost Done**).
+*   **Global & Realm Rarity Census + Native Character Pane Tooltips:** Integrates **Data for Azeroth** global Armory ownership percentages across **688 titles** (`TitlesDB-1.0`) with realm population ownership estimates, tier-colored rarity badges, passive open-world `RealmCensus`, and rich row-hover tooltips directly inside Blizzard's native **`C -> Titles` (`PaperDollTitlesPane`)** list.
 *   **Current Zone Radar & Multi-Hop Portal Route Navigator:** Highlights uncollected titles tied to your current map or raid instance and plots automated step-by-step intercontinental portal chains (`C_Map.SetUserWaypoint` + `C_SuperTrack` + optional **TomTom**) that yield cleanly whenever you manually clear or replace a map pin.
 *   **Live Nameplate Preview (Class-Colored & Male/Female Forms):** Previews how every Prefix and Suffix title renders with your character's class-colored name and grammatical gender (`Male` / `Female`) before farming or equipping it.
 *   **Smart Auto-Title Switcher (100% Optional & Toggleable):** Disabled by default so it never overrides your active title unexpectedly; when enabled, automatically equips chosen or random **Favorite** titles per specialization (`1..4`) or content context (*PvP*, *Raids & Mythic+*, *Rested Cities*), queuing swaps safely until combat ends.
@@ -53,7 +54,7 @@ Connects your title journal directly to the game world (`Navigation.lua` & `Core
 
 *   **Intercontinental Portal Routing:** Clicking **Plot Route (3D Waypoint)** builds an automatic multi-hop portal route from isolated hubs (*Harandar / The Den*, *Silvermoon City*, *Dornogal*, *Valdrakken*, *Oribos*, *Stormwind / Orgrimmar*) to faction quartermasters, raid entrances, and open-world objectives.
 *   **Anti-Zombie Waypoint Yielding:** Hooks `C_Map` and `C_SuperTrack` (`USER_WAYPOINT_UPDATED`) so clearing a map pin or tracking a quest/rare immediately cancels the active route without re-pinning on zone transitions.
-*   **Open-World Player Unit Tooltips & Character Pane Button:** Hovering over players in the world displays the global rarity, expansion, source, and your own completion percentage for the title they are wearing, while a one-click **TitleCollector** button sits right inside Blizzard's `PaperDollTitlesPane`.
+*   **Open-World Player Unit Tooltips & Full Character Pane (`C -> Titles`) Integration:** Hovering over players in the world—or hovering over any title row inside Blizzard's native `PaperDollTitlesPane`—displays global rarity, estimated realm owners, expansion, vendor/achievement source, and acquisition notes alongside a one-click **TitleCollector** header button.
 
 ***
 

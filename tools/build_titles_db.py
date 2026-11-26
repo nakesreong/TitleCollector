@@ -67,9 +67,11 @@ CURATED_BY_TITLE = {
         "obtainable": False, "difficulty": "LEGACY",
     },
     "of the shattered sun": {
-        "factionID": 1077, "reqStanding": 8, "mapID": 122, "x": 48.0, "y": 25.2, "difficulty": "SOLO_FAST",
-        "note_ru": "Достигните Превознесения с Армией Расколотого Солнца на Острове Кель'Данас и купите звание за 1000 золотых у Эльдара Вестника Зари (Терраса Магистров проносится за 15 минут).",
-        "note_en": "Reach Exalted with Shattered Sun Offensive on Isle of Quel'Danas and donate 1,000g to Eldara Dawnrunner.",
+        "cat": "Vendor", "factionID": 1077, "reqStanding": 8, "goldCost": 1000,
+        "vendor_ru": "Эльдара Вестница Зари (Остров Кель'Данас)", "vendor_en": "Eldara Dawnrunner (Isle of Quel'Danas)",
+        "mapID": 122, "x": 48.0, "y": 25.2, "difficulty": "SOLO_FAST",
+        "note_ru": "Достигните Превознесения с Армией Расколотого Солнца на Острове Кель'Данас и купите звание за 1000 золотых у Эльдары Вестницы Зари (Терраса Магистров проносится за 15 минут).",
+        "note_en": "Reach Exalted with Shattered Sun Offensive on Isle of Quel'Danas and purchase the title for 1,000g from Eldara Dawnrunner.",
     },
     # WotLK Raid Solo Classics
     "of the nightfall": {
@@ -150,9 +152,27 @@ CURATED_BY_TITLE = {
         "note_en": "Awaken all Klaxxi Paragons and reach Exalted with The Klaxxi in Dread Wastes.",
     },
     "barter boss": {
-        "achID": 17841, "mapID": 2133, "x": 58.0, "y": 53.8, "difficulty": "SOLO_GRIND",
-        "note_ru": "Купите шляпу Понзо за 249 валунов для обмена в Пещере Заралек (Лоамм).",
-        "note_en": "Purchase Ponzo's hat for 249 Barter Boulders in Loamm (Zaralek Cavern).",
+        "cat": "Vendor", "achID": 17841, "itemID": 204985, "itemCost": 249,
+        "itemName_ru": "Валун для обмена", "itemName_en": "Barter Boulder",
+        "vendor_ru": "Понзо (Лоамм, Пещера Заралек)", "vendor_en": "Ponzo (Loamm, Zaralek Cavern)",
+        "mapID": 2133, "x": 58.0, "y": 53.8, "difficulty": "SOLO_GRIND",
+        "note_ru": "Купите шляпу Понзо за 249 валунов для обмена у Понзо в Лоамме (Пещера Заралек).",
+        "note_en": "Purchase Ponzo's hat for 249 Barter Boulders from Ponzo in Loamm (Zaralek Cavern).",
+    },
+    "talon's vengeance": {
+        "cat": "Vendor", "factionID": 2018, "reqStanding": 8,
+        "vendor_ru": "Тринка (Крутогорье)", "vendor_en": "Trinket (Highmountain)",
+        "mapID": 650, "x": 32.2, "y": 66.8, "difficulty": "PVP",
+        "note_ru": "Достигните Превознесения с фракцией «Коготь Мщения» и заберите жетон звания у Тринки в Крутогорье (32.2, 66.8).",
+        "note_en": "Reach Exalted with Talon's Vengeance and claim the title from Trinket in Highmountain (32.2, 66.8).",
+    },
+    "the fashionable": {
+        "cat": "Vendor", "itemID": 151134, "itemCost": 100,
+        "itemName_ru": "Жетон «Проверки стилем»", "itemName_en": "Trial of Style Token",
+        "vendor_ru": "Трансмогрификатор (Даларан / Столицы)", "vendor_en": "Transmogrifier (Dalaran / Capital Cities)",
+        "mapID": 627, "x": 44.2, "y": 46.8, "difficulty": "SOLO_FAST",
+        "note_ru": "Купите «Модную нижнюю рубашку» за 100 жетонов «Проверки стилем» у любого трансмогрификатора во время события «Проверка стилем».",
+        "note_en": "Purchase 'Shirt: Fashionable Undershirt' for 100 Trial of Style Tokens from any Transmogrifier during the Trial of Style event.",
     },
     "slayer of the deeps": {
         "achID": 40097, "mapID": 2339, "x": 59.0, "y": 69.2, "difficulty": "PVP",
@@ -735,15 +755,32 @@ def main():
                         req_standing = 8
                     break
 
+        # Vendor & currency metadata
+        currency_id = curated.get("currencyID")
+        currency_cost = curated.get("currencyCost")
+        item_id = curated.get("itemID")
+        item_cost = curated.get("itemCost")
+        item_name_ru = curated.get("itemName_ru") or ""
+        item_name_en = curated.get("itemName_en") or ""
+        gold_cost = curated.get("goldCost")
+        vendor_ru = curated.get("vendor_ru") or ""
+        vendor_en = curated.get("vendor_en") or ""
+
+        if dfa_source_type == "currency" and dfa_currency and "timewarped" in dfa_currency.lower():
+            currency_id = currency_id or 1166
+            currency_cost = currency_cost or 100
+            vendor_ru = vendor_ru or "Нотариус Грабли (Пещеры Времени, Танарис)"
+            vendor_en = vendor_en or "Notary Grably (Caverns of Time, Tanaris)"
+
         # Determine Category (`cat` / `kind`)
         if curated.get("cat"):
             cat = curated["cat"]
+        elif dfa_source_type in ("currency", "vendor"):
+            cat = "Vendor"
         elif ach_row_en:
             cat = classify_achievement_category(ach_row_en, cat_en)
         elif dfa_source_type == "faction" or faction_id:
             cat = "Reputation"
-        elif dfa_source_type == "currency":
-            cat = "Holiday"
         elif dfa_source_type == "quest":
             cat = "Campaign" if exp_num == 7 else "Quest"
         elif dfa_source_type == "drop":
@@ -773,8 +810,8 @@ def main():
                     note_ru = note_ru or f"Достигните Превознесения у фракции «{fac_ru_label}»."
             elif dfa_source_type == "currency" and dfa_currency:
                 if "timewarped" in dfa_currency.lower():
-                    note_en = note_en or "Purchased from Timewalking vendors for Timewarped Badges during Timewalking events."
-                    note_ru = note_ru or "Приобретается у торговцев Путешествий во времени за Искаженные временем знаки."
+                    note_en = note_en or "Purchased for 100 Timewarped Badges from Notary Grably at the Caverns of Time in Tanaris (62.6, 50.2) during Timewalking / Anniversary events."
+                    note_ru = note_ru or "Приобретается за 100 Искаженных временем знаков у Нотариуса Грабли у Пещер Времени (Танарис, 62.6, 50.2) во время событий Путешествий во времени / Годовщины."
                 else:
                     note_en = note_en or f"Purchased with currency: {dfa_currency}."
                     note_ru = note_ru or f"Приобретается за валюту: {dfa_currency}."
@@ -813,10 +850,13 @@ def main():
 
         quest_id = curated.get("questID") or dfa_quest_id
 
-        # Resolve mapID and coordinates (Curated -> Faction HQ -> Raid/Dungeon entrance -> Zone name match -> Expansion Hub)
+        # Resolve mapID and coordinates (Curated -> Timewalking vendor -> Faction HQ -> Raid/Dungeon entrance -> Zone name match -> Expansion Hub)
         map_id = curated.get("mapID")
         coord_x = curated.get("x")
         coord_y = curated.get("y")
+
+        if not map_id and currency_id == 1166:
+            map_id, coord_x, coord_y = 71, 62.6, 50.2
 
         if not map_id and faction_id and faction_id in FACTION_COORDS and not curated.get("noZone"):
             map_id, coord_x, coord_y = FACTION_COORDS[faction_id]
@@ -834,7 +874,7 @@ def main():
                     if len(zname) >= 6 and re.search(rf"\b{re.escape(zname)}\b", full_search_blob):
                         map_id = mid
                         break
-            if not map_id and obtainable and cat in ("Reputation", "Quest", "Exploration", "Campaign", "Delves") and exp_num in EXPANSION_HUB_FALLBACKS:
+            if not map_id and obtainable and cat in ("Reputation", "Quest", "Exploration", "Campaign", "Delves", "Vendor") and exp_num in EXPANSION_HUB_FALLBACKS:
                 map_id, coord_x, coord_y = EXPANSION_HUB_FALLBACKS[exp_num]
 
         # Determine smart difficulty tag
@@ -846,7 +886,9 @@ def main():
                 difficulty = "PVP"
             elif cat in ("Raid", "Dungeon"):
                 difficulty = "SOLO_RAID" if exp_num <= 10 else "GROUP"
-            elif cat in ("Exploration", "Quest", "Holiday", "Campaign") and (not rarity_pct or rarity_pct >= 8.0):
+            elif currency_id == 1166:
+                difficulty = "SOLO_FAST"
+            elif cat in ("Exploration", "Quest", "Holiday", "Campaign", "Vendor") and (not rarity_pct or rarity_pct >= 8.0):
                 difficulty = "SOLO_FAST"
             elif cat == "Reputation" or faction_id:
                 difficulty = "SOLO_GRIND"
@@ -896,6 +938,15 @@ def main():
             "facName_en": fac_name_en,
             "reqStanding": req_standing,
             "reqRenown": req_renown,
+            "currencyID": currency_id,
+            "currencyCost": currency_cost,
+            "itemID": item_id,
+            "itemCost": item_cost,
+            "itemName_ru": item_name_ru,
+            "itemName_en": item_name_en,
+            "goldCost": gold_cost,
+            "vendor_ru": vendor_ru,
+            "vendor_en": vendor_en,
             "mapID": map_id,
             "x": coord_x,
             "y": coord_y,
@@ -972,6 +1023,24 @@ def main():
             parts.append(f"reqStanding={r['reqStanding']}")
         if r["reqRenown"]:
             parts.append(f"reqRenown={r['reqRenown']}")
+        if r["currencyID"]:
+            parts.append(f"currencyID={r['currencyID']}")
+        if r["currencyCost"]:
+            parts.append(f"currencyCost={r['currencyCost']}")
+        if r["itemID"]:
+            parts.append(f"itemID={r['itemID']}")
+        if r["itemCost"]:
+            parts.append(f"itemCost={r['itemCost']}")
+        if r["itemName_ru"]:
+            parts.append(f"itemName_ru={lua_str(r['itemName_ru'])}")
+        if r["itemName_en"]:
+            parts.append(f"itemName_en={lua_str(r['itemName_en'])}")
+        if r["goldCost"]:
+            parts.append(f"goldCost={r['goldCost']}")
+        if r["vendor_ru"]:
+            parts.append(f"vendor_ru={lua_str(r['vendor_ru'])}")
+        if r["vendor_en"]:
+            parts.append(f"vendor_en={lua_str(r['vendor_en'])}")
         if r["mapID"]:
             parts.append(f"mapID={r['mapID']}")
         if r["x"] is not None and r["y"] is not None:

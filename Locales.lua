@@ -53,6 +53,7 @@ local Locales = {
         CAT_QUEST = "Задания и Кампания",
         CAT_EXPLORATION = "Исследования",
         CAT_HOLIDAY = "Игровые события",
+        CAT_VENDOR = "Торговцы и Валюта",
         CAT_PROFESSION = "Профессии",
         CAT_OTHER = "Прочее / Промо",
 
@@ -91,8 +92,11 @@ local Locales = {
         INSP_HOW_TO_GET = "Как получить:",
         INSP_SOURCE_ACH_FMT = "Достижение: |cffffd100%s|r (#%d)",
         INSP_SOURCE_QUEST_FMT = "Задание: |cffffd100%s|r (#%d)",
+        INSP_SOURCE_VENDOR_FMT = "Торговец: |cffffd100%s|r",
+        INSP_PRICE_FMT = "Цена покупки: |cff00ff96%s|r",
         INSP_SOURCE_FACTION_FMT = "Фракция ID: |cffffd100#%d|r",
         INSP_LOCATION_FMT = "Локация: |cff00ccff%s|r%s",
+        CRIT_READY_TO_BUY = "Можно купить!",
 
         -- Авто-титулы (Вкладка 4)
         AUTO_HEADER_TITLE = "Умная авто-смена званий (Специализации и Контент)",
@@ -197,6 +201,7 @@ local Locales = {
         CAT_QUEST = "Quests & Campaign",
         CAT_EXPLORATION = "Exploration",
         CAT_HOLIDAY = "World Events",
+        CAT_VENDOR = "Vendors & Currency",
         CAT_PROFESSION = "Professions",
         CAT_OTHER = "Other / Promotions",
 
@@ -233,8 +238,11 @@ local Locales = {
         INSP_HOW_TO_GET = "How to Obtain:",
         INSP_SOURCE_ACH_FMT = "Achievement: |cffffd100%s|r (#%d)",
         INSP_SOURCE_QUEST_FMT = "Quest: |cffffd100%s|r (#%d)",
+        INSP_SOURCE_VENDOR_FMT = "Vendor: |cffffd100%s|r",
+        INSP_PRICE_FMT = "Purchase Cost: |cff00ff96%s|r",
         INSP_SOURCE_FACTION_FMT = "Faction ID: |cffffd100#%d|r",
         INSP_LOCATION_FMT = "Location: |cff00ccff%s|r%s",
+        CRIT_READY_TO_BUY = "Ready to buy!",
 
         AUTO_HEADER_TITLE = "Smart Auto-Title Switcher (Specializations & Content)",
         AUTO_MASTER_ENABLE = "Enable Automatic Title Switching (Auto-Title)",

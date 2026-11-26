@@ -277,8 +277,8 @@ function addon:EvaluateTitleProgress(title, forceRefresh, summaryOnly)
                         end
                     end
                 end
-            else
-                -- Одношаговое достижение без под-критериев
+            elseif not (title.currencyCost or title.itemCost) then
+                -- Одношаговое достижение без под-критериев (когда нет отдельного счётчика валюты/предмета)
                 totalCount = 1
                 totalWeight = 1.0
                 local done = (isCollected == true)
@@ -349,6 +349,109 @@ function addon:EvaluateTitleProgress(title, forceRefresh, summaryOnly)
             completed = qDone,
             pct = qDone and 100.0 or 0.0,
             questID = title.questID,
+        })
+    end
+
+    -- 4. Валюта, предметы обмена в сумках/банке отряда и золото у торговцев
+    if title.currencyID and title.currencyID > 0 and title.currencyCost and title.currencyCost > 0 and C_CurrencyInfo and C_CurrencyInfo.GetCurrencyInfo then
+        local okCur, cInfo = pcall(C_CurrencyInfo.GetCurrencyInfo, title.currencyID)
+        if okCur and cInfo then
+            local have = (SafeNotSecret(cInfo.quantity) and type(cInfo.quantity) == "number") and cInfo.quantity or 0
+            local cost = title.currencyCost
+            local cName = (SafeNotSecret(cInfo.name) and type(cInfo.name) == "string" and cInfo.name ~= "") and cInfo.name or ("Currency #" .. tostring(title.currencyID))
+            if isEN and clientIsNonEN and title.currencyID == 1166 then
+                cName = "Timewarped Badge"
+            elseif not isEN and not clientIsNonEN and title.currencyID == 1166 then
+                cName = "Искаженный временем знак"
+            end
+            local hasEnough = isCollected or (have >= cost)
+            local frac = isCollected and 1.0 or (hasEnough and 0.97 or math.max(0, math.min(0.95, have / cost)))
+            totalCount = totalCount + 1
+            totalWeight = totalWeight + 1.0
+            if hasEnough then
+                doneCount = doneCount + 1
+            end
+            earnedWeight = earnedWeight + frac
+            local readyTag = (not isCollected and have >= cost) and (" |cff00ff96[" .. self:L("CRIT_READY_TO_BUY") .. "]|r") or ""
+            table.insert(criteria, {
+                index = #criteria + 1,
+                text = string.format("%s: |cff88ccff%d / %d|r%s", cName, have, cost, readyTag),
+                rawText = cName,
+                completed = hasEnough,
+                pct = hasEnough and 100.0 or (frac * 100.0),
+                quantity = have,
+                reqQuantity = cost,
+                isCurrency = true,
+            })
+        end
+    end
+
+    if title.itemID and title.itemID > 0 and title.itemCost and title.itemCost > 0 then
+        local have = 0
+        if C_Item and C_Item.GetItemCount then
+            local okIt, cnt = pcall(C_Item.GetItemCount, title.itemID, true, false, true, true)
+            if okIt and SafeNotSecret(cnt) and type(cnt) == "number" then
+                have = cnt
+            end
+        elseif _G.GetItemCount then
+            local okIt, cnt = pcall(_G.GetItemCount, title.itemID, true)
+            if okIt and SafeNotSecret(cnt) and type(cnt) == "number" then
+                have = cnt
+            end
+        end
+        local cost = title.itemCost
+        local iName = (isEN and title.itemName_en and title.itemName_en ~= "" and title.itemName_en)
+            or (not isEN and title.itemName_ru and title.itemName_ru ~= "" and title.itemName_ru)
+            or (C_Item and C_Item.GetItemNameByID and C_Item.GetItemNameByID(title.itemID))
+            or ("Item #" .. tostring(title.itemID))
+        local hasEnough = isCollected or (have >= cost)
+        local frac = isCollected and 1.0 or (hasEnough and 0.97 or math.max(0, math.min(0.95, have / cost)))
+        totalCount = totalCount + 1
+        totalWeight = totalWeight + 1.0
+        if hasEnough then
+            doneCount = doneCount + 1
+        end
+        earnedWeight = earnedWeight + frac
+        local readyTag = (not isCollected and have >= cost) and (" |cff00ff96[" .. self:L("CRIT_READY_TO_BUY") .. "]|r") or ""
+        table.insert(criteria, {
+            index = #criteria + 1,
+            text = string.format("%s: |cff88ccff%d / %d|r%s", iName, have, cost, readyTag),
+            rawText = iName,
+            completed = hasEnough,
+            pct = hasEnough and 100.0 or (frac * 100.0),
+            quantity = have,
+            reqQuantity = cost,
+            isItemCost = true,
+        })
+    end
+
+    if title.goldCost and title.goldCost > 0 and _G.GetMoney then
+        local okM, rawCopper = pcall(GetMoney)
+        local haveGold = (okM and SafeNotSecret(rawCopper) and type(rawCopper) == "number") and math.floor(rawCopper / 10000) or 0
+        local costGold = title.goldCost
+        local hasPriorPrereq = totalWeight > 0
+        local gWeight = hasPriorPrereq and 0.15 or 1.0
+        local hasEnough = isCollected or (haveGold >= costGold)
+        local frac = isCollected and 1.0 or (hasEnough and (hasPriorPrereq and 1.0 or 0.97) or math.max(0, math.min(0.95, haveGold / costGold)))
+        totalCount = totalCount + 1
+        totalWeight = totalWeight + gWeight
+        if hasEnough then
+            doneCount = doneCount + 1
+        end
+        earnedWeight = earnedWeight + (frac * gWeight)
+        local goldLabel = isEN and "Gold" or "Золото"
+        local readyTag = (not isCollected and haveGold >= costGold and (not hasPriorPrereq or doneCount == totalCount))
+            and (" |cff00ff96[" .. self:L("CRIT_READY_TO_BUY") .. "]|r")
+            or ""
+        table.insert(criteria, {
+            index = #criteria + 1,
+            text = string.format("%s: |cffffd100%d / %d|r |TInterface\\MoneyFrame\\UI-GoldIcon:12:12:2:0|t%s", goldLabel, haveGold, costGold, readyTag),
+            rawText = goldLabel,
+            completed = hasEnough,
+            pct = hasEnough and 100.0 or (frac * 100.0),
+            quantity = haveGold,
+            reqQuantity = costGold,
+            isGoldCost = true,
         })
     end
 
