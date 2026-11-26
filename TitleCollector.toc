@@ -12,11 +12,14 @@
 ## Notes-zhCN: 头衔藏品与实时进度追踪器（即将完成、当前区域、成就与声望进度、全球/服务器稀有度、跨区传送门导航与专精自动切换头衔）。
 ## Notes-zhTW: 頭銜收藏與即時進度追蹤器（即將完成、當前區域、成就與聲望進度、全球/伺服器稀有度、跨區傳送門導航與專精自動切換頭銜）。
 ## Author: Gemini (Tiger) | QA & Vision: Anya (5cr3am1ng5oul)
-## Version: 1.0.0
+## Version: 1.0.1
 ## SavedVariables: TitleCollectorDB
 ## OptionalDeps: TomTom, ElvUI
 ## IconTexture: 237537
 ## X-Curse-Project-ID: 1820165
+## AddonCompartmentFunc: TitleCollector_OnAddonCompartmentClick
+## AddonCompartmentFuncOnEnter: TitleCollector_OnAddonCompartmentEnter
+## AddonCompartmentFuncOnLeave: TitleCollector_OnAddonCompartmentLeave
 
 Libs\LibStub\LibStub.lua
 Libs\CallbackHandler-1.0\CallbackHandler-1.0.lua

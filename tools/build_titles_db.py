@@ -189,6 +189,36 @@ CURATED_BY_TITLE = {
         "note_ru": "Заработайте 100 превознесений с фракциями по всему Азероту.",
         "note_en": "Earn Exalted status with 100 reputations.",
     },
+    # Midnight (12.x) Zone Overrides & Field Tips
+    "teacher of strong": {
+        "questID": 90622, "mapID": 2413, "x": 67.2, "y": 49.4, "difficulty": "SOLO_FAST",
+        "note_ru": "Завершите побочную цепочку арены «Мухоморцев» в Яме Обид (Харандар, задание #90622). Совет: после сдачи задания выбегите за пределы Ямы Обид, чтобы обновилась фаза и начислилось звание!",
+        "note_en": "Complete the Fungal Fellowship arena storyline in The Grudge Pit (Harandar, Quest #90622). Tip: step outside The Grudge Pit after turning in the quest so the phase updates and grants your title!",
+    },
+    "chronicler of the haranir": {
+        "achID": 61344, "mapID": 2413, "x": 53.3, "y": 55.5, "difficulty": "SOLO_GRIND",
+    },
+    "loa-blessed": {
+        "achID": 63716, "mapID": 2437, "x": 45.0, "y": 50.0, "difficulty": "SOLO_GRIND",
+    },
+    "treasure hound": {
+        "achID": 63717, "mapID": 2437, "x": 45.0, "y": 50.0, "difficulty": "SOLO_GRIND",
+    },
+    "lockpickin'": {
+        "achID": 63719, "mapID": 2437, "x": 45.0, "y": 50.0, "difficulty": "SOLO_GRIND",
+    },
+    "maze runner": {
+        "achID": 63722, "mapID": 2437, "x": 45.0, "y": 50.0, "difficulty": "SOLO_GRIND",
+    },
+    "treasure seeker": {
+        "achID": 61901, "noZone": True, "difficulty": "SOLO_GRIND",
+    },
+    "snake eater": {
+        "achID": 63433, "noZone": True, "difficulty": "SOLO_GRIND",
+    },
+    "preyseeker": {
+        "achID": 62351, "noZone": True, "difficulty": "SOLO_GRIND",
+    },
 }
 
 FACTION_COORDS = {

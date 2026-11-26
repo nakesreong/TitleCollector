@@ -813,9 +813,10 @@ function addon:EnsureMainWindow()
     logoTex:SetTexture(237537)
     logoTex:SetTexCoord(0.08, 0.92, 0.08, 0.92)
 
+    local verStr = (C_AddOns and C_AddOns.GetAddOnMetadata and C_AddOns.GetAddOnMetadata(addonName, "Version")) or "1.0.1"
     local titleFS = header:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
     titleFS:SetPoint("TOPLEFT", logoTex, "TOPRIGHT", 10, -1)
-    titleFS:SetText("|cffffd100Title|r|cff00ccffCollector|r |cff888888v1.0.0|r")
+    titleFS:SetText("|cffffd100Title|r|cff00ccffCollector|r |cff888888v" .. verStr .. "|r")
 
     local subFS = header:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     subFS:SetPoint("BOTTOMLEFT", logoTex, "BOTTOMRIGHT", 10, 1)
@@ -1842,6 +1843,33 @@ function addon:InitLDB()
     })
 end
 
+-- Нативная интеграция в кнопку аддонов Blizzard над миникартой (AddonCompartmentFrame)
+function _G.TitleCollector_OnAddonCompartmentClick(_, buttonName)
+    if buttonName == "RightButton" then
+        addon:EquipRandomFavorite(false)
+    else
+        addon:ToggleMainWindow()
+    end
+end
+
+function _G.TitleCollector_OnAddonCompartmentEnter(_, menuButtonFrame)
+    if not GameTooltip then return end
+    GameTooltip:SetOwner(menuButtonFrame or UIParent, "ANCHOR_LEFT")
+    local col, tot, almostCnt = addon:GetOverallCollectionStats()
+    local pct = (tot > 0) and ((col / tot) * 100.0) or 0
+    GameTooltip:AddLine("|cffffd100Title|r|cff00ccffCollector|r — " .. addon:L("MINIMAP_TT_SUBTITLE"))
+    GameTooltip:AddLine(addon:L("MINIMAP_TT_COLLECTED_FMT", col, tot, pct), 0.92, 0.92, 0.95)
+    GameTooltip:AddLine(addon:L("MINIMAP_TT_ALMOST_FMT", almostCnt), 0.92, 0.92, 0.95)
+    GameTooltip:AddLine(" ")
+    GameTooltip:AddLine(addon:L("MINIMAP_TT_LCLICK"), 0.7, 0.9, 1.0)
+    GameTooltip:AddLine(addon:L("MINIMAP_TT_RCLICK"), 0.7, 0.9, 1.0)
+    GameTooltip:Show()
+end
+
+function _G.TitleCollector_OnAddonCompartmentLeave()
+    if GameTooltip then GameTooltip:Hide() end
+end
+
 -- ============================================================================
 -- КАСТОМНЫЙ ПОПАП WOWHEAD (ЗАКРЫТИЕ ПО ESC И ENTER) + ТОСТ ПРОГРЕССА ЗВАНИЯ
 -- ============================================================================
@@ -2142,7 +2170,8 @@ function addon:TriggerProgressToast(title, prog, isUnlocked, forceTest)
         return
     end
     local now = GetTime and GetTime() or 0
-    if not forceTest and (now - (self.lastToastTime or 0)) < 8.0 then
+    -- Победный тост разблокировки звания (isUnlocked == true) никогда не блокируется анти-спам кулдауном прогресса!
+    if not forceTest and not isUnlocked and (now - (self.lastToastTime or 0)) < 8.0 then
         return
     end
     self.lastToastTime = now
