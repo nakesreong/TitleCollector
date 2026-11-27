@@ -37,6 +37,7 @@ local ui = {
     filterCat = "ALL",
     filterDiff = "ALL",
     filterAffix = "ALL",   -- ALL | PREFIX | SUFFIX
+    onlyCanBuy = false,
     onlyFavorites = false,
     sortBy = "PROGRESS",   -- PROGRESS | RARITY | NAME | EXP
     scrollOffset = 0,
@@ -374,6 +375,16 @@ function addon:RebuildFilteredTitles()
         end
 
         -- Пользовательские фильтры
+        if pass and ui.onlyCanBuy then
+            if isCol or not t.obtainable then
+                pass = false
+            else
+                local progBuy = self:EvaluateTitleProgress(t, false, false)
+                if not (progBuy and progBuy.readyToBuy) then
+                    pass = false
+                end
+            end
+        end
         if pass and ui.onlyFavorites and not self:IsTitleFavorite(t.maskID) then
             pass = false
         end
@@ -429,22 +440,22 @@ function addon:RebuildFilteredTitles()
         local progB = self:EvaluateTitleProgress(b, false, true)
 
         if ui.currentTab == "COLLECTED" and (ui.sortBy == "RARITY" or ui.sortBy == "PROGRESS") then
-            local rA = a.rarity or 999
-            local rB = b.rarity or 999
-            if math.abs(rA - rB) > 0.0001 then return rA < rB end
+            local rA = (type(a.rarity) == "number") and a.rarity or 999
+            local rB = (type(b.rarity) == "number") and b.rarity or 999
+            if rA ~= rB then return rA < rB end
         elseif ui.currentTab == "ALMOST" or ui.sortBy == "PROGRESS" then
-            local pctA = progA and progA.pct or 0
-            local pctB = progB and progB.pct or 0
-            if math.abs(pctA - pctB) > 0.05 then
+            local pctA = math.floor(((progA and progA.pct) or 0) * 100 + 0.5)
+            local pctB = math.floor(((progB and progB.pct) or 0) * 100 + 0.5)
+            if pctA ~= pctB then
                 return pctA > pctB
             end
             local dA = (DIFF_META[a.difficulty] and DIFF_META[a.difficulty].order) or 9
             local dB = (DIFF_META[b.difficulty] and DIFF_META[b.difficulty].order) or 9
             if dA ~= dB then return dA < dB end
         elseif ui.sortBy == "RARITY" then
-            local rA = a.rarity or 999
-            local rB = b.rarity or 999
-            if math.abs(rA - rB) > 0.0001 then return rA < rB end
+            local rA = (type(a.rarity) == "number") and a.rarity or 999
+            local rB = (type(b.rarity) == "number") and b.rarity or 999
+            if rA ~= rB then return rA < rB end
         elseif ui.sortBy == "EXP" then
             if (a.exp or 0) ~= (b.exp or 0) then
                 return (a.exp or 0) > (b.exp or 0)
@@ -663,7 +674,7 @@ function addon:RefreshListRows()
             local isSelected = (ui.selectedTitle and ui.selectedTitle.maskID == t.maskID)
             local isEquipped = (curActiveMask == t.maskID)
 
-            row.favBtn.tex:SetVertexColor(isFav and 1.0 or 0.35, isFav and 0.85 or 0.35, isFav and 0.15 or 0.35, 1.0)
+            row.favBtn.tex:SetVertexColor(isFav and 1.0 or 0.30, isFav and 0.88 or 0.30, isFav and 0.15 or 0.34, isFav and 1.0 or 0.42)
             row.iconTex:SetTexture(ResolveTitleIcon(t))
 
             local cleanName = self:GetTitleCleanName(t)
@@ -742,7 +753,9 @@ function addon:RefreshListRows()
     end
 
     if total == 0 and ui.emptyListFS then
-        if ui.currentTab == "ALMOST" then
+        if ui.onlyCanBuy then
+            ui.emptyListFS:SetText(self:L("EMPTY_LIST_CAN_BUY"))
+        elseif ui.currentTab == "ALMOST" then
             ui.emptyListFS:SetText(self:L("EMPTY_LIST_ALMOST"))
         elseif ui.currentTab == "ZONE" then
             local pMap = C_Map and C_Map.GetBestMapForUnit and C_Map.GetBestMapForUnit("player")
@@ -1079,9 +1092,9 @@ function addon:EnsureMainWindow()
     end)
     ui.diffBtn = diffBtn
 
-    -- Вторая строка мини-фильтров (Категория, Префикс/Суффикс, Сортировка, Избранные)
+    -- Вторая строка мини-фильтров (Категория, Префикс/Суффикс, Сортировка, Можно купить, Избранные)
     local catOrder = { "ALL", "VENDOR", "ACHIEVEMENT", "RAID", "DUNGEON", "REPUTATION", "QUEST", "EXPLORATION", "PVP", "HOLIDAY", "PROFESSION" }
-    local catBtn = CreateCollectorButton(catCont, 145, 22, self:L("FILTER_CAT_ALL"), false)
+    local catBtn = CreateCollectorButton(catCont, 118, 22, self:L("FILTER_CAT_ALL"), false)
     catBtn:SetPoint("TOPLEFT", searchBox, "BOTTOMLEFT", 0, -5)
     catBtn:SetScript("OnClick", function(selfBtn, button)
         if button == "RightButton" then
@@ -1111,8 +1124,8 @@ function addon:EnsureMainWindow()
     ui.catBtn = catBtn
 
     local affixOrder = { "ALL", "PREFIX", "SUFFIX" }
-    local affixBtn = CreateCollectorButton(catCont, 135, 22, self:L("FILTER_AFFIX_ALL"), false)
-    affixBtn:SetPoint("LEFT", catBtn, "RIGHT", 6, 0)
+    local affixBtn = CreateCollectorButton(catCont, 112, 22, self:L("FILTER_AFFIX_ALL"), false)
+    affixBtn:SetPoint("LEFT", catBtn, "RIGHT", 5, 0)
     affixBtn:SetScript("OnClick", function(selfBtn, button)
         if button == "RightButton" then
             HideCollectorDropdown()
@@ -1141,8 +1154,8 @@ function addon:EnsureMainWindow()
     ui.affixBtn = affixBtn
 
     local sortOrder = { "PROGRESS", "RARITY", "NAME", "EXP" }
-    local sortBtn = CreateCollectorButton(catCont, 125, 22, self:L("SORT_PROGRESS"), false)
-    sortBtn:SetPoint("LEFT", affixBtn, "RIGHT", 6, 0)
+    local sortBtn = CreateCollectorButton(catCont, 108, 22, self:L("SORT_PROGRESS"), false)
+    sortBtn:SetPoint("LEFT", affixBtn, "RIGHT", 5, 0)
     sortBtn:SetScript("OnClick", function(selfBtn)
         local items = {}
         for _, k in ipairs(sortOrder) do
@@ -1162,8 +1175,34 @@ function addon:EnsureMainWindow()
     end)
     ui.sortBtn = sortBtn
 
-    local favFilterBtn = CreateCollectorButton(catCont, 96, 22, self:L("FILTER_ONLY_FAV"), false)
-    favFilterBtn:SetPoint("LEFT", sortBtn, "RIGHT", 6, 0)
+    local canBuyBtn = CreateCollectorButton(catCont, 108, 22, self:L("FILTER_CAN_BUY"), false)
+    canBuyBtn:SetPoint("LEFT", sortBtn, "RIGHT", 5, 0)
+    canBuyBtn:SetScript("OnClick", function(selfBtn)
+        ui.onlyCanBuy = not ui.onlyCanBuy
+        selfBtn:SetActiveTab(ui.onlyCanBuy)
+        if ui.onlyCanBuy and ui.currentTab == "COLLECTED" then
+            ui.currentTab = "ALL"
+        end
+        ui.scrollOffset = 0
+        ui.selectedTitle = nil
+        addon:RefreshUI()
+    end)
+    canBuyBtn:HookScript("OnEnter", function(selfBtn)
+        if not GameTooltip then return end
+        GameTooltip:SetOwner(selfBtn, "ANCHOR_TOP")
+        GameTooltip:AddLine(addon:L("FILTER_CAN_BUY_TT_HDR"), 1.0, 0.85, 0.20)
+        GameTooltip:AddLine(addon:L("FILTER_CAN_BUY_TT_DESC"), 0.90, 0.90, 0.94, true)
+        GameTooltip:Show()
+    end)
+    canBuyBtn:HookScript("OnLeave", function(selfBtn)
+        if GameTooltip and GameTooltip:IsOwned(selfBtn) then
+            GameTooltip:Hide()
+        end
+    end)
+    ui.canBuyBtn = canBuyBtn
+
+    local favFilterBtn = CreateCollectorButton(catCont, 56, 22, self:L("FILTER_ONLY_FAV"), false)
+    favFilterBtn:SetPoint("LEFT", canBuyBtn, "RIGHT", 5, 0)
     favFilterBtn:SetScript("OnClick", function(selfBtn)
         ui.onlyFavorites = not ui.onlyFavorites
         selfBtn:SetActiveTab(ui.onlyFavorites)
@@ -1700,6 +1739,9 @@ function addon:ApplyLocaleToStaticUI()
     end
     if ui.sortBtn then
         ui.sortBtn:SetText(self:L("SORT_" .. (ui.sortBy or "PROGRESS")))
+    end
+    if ui.canBuyBtn then
+        ui.canBuyBtn:SetText(self:L("FILTER_CAN_BUY"))
     end
     if ui.favFilterBtn then
         ui.favFilterBtn:SetText(self:L("FILTER_ONLY_FAV"))

@@ -311,11 +311,12 @@ function addon:EvaluateTitleProgress(title, forceRefresh, summaryOnly)
         if fProg then
             totalCount = totalCount + 1
             totalWeight = totalWeight + 1.0
-            local fDone = isCollected or (fProg.completed and totalCount > 1)
+            local hasFollowupCost = (title.goldCost ~= nil) or (title.currencyCost ~= nil) or (title.itemCost ~= nil)
+            local fDone = isCollected or fProg.completed
             if fDone then
                 doneCount = doneCount + 1
-                earnedWeight = earnedWeight + 1.0
-            elseif not fProg.completed then
+                earnedWeight = earnedWeight + ((isCollected or hasFollowupCost) and 1.0 or 0.97)
+            else
                 earnedWeight = earnedWeight + (fProg.pct / 100.0)
             end
             table.insert(criteria, 1, {
@@ -462,11 +463,22 @@ function addon:EvaluateTitleProgress(title, forceRefresh, summaryOnly)
         finalPct = math.min(99.4, (earnedWeight / totalWeight) * 100.0)
     end
 
+    local isVendorSource = (title.cat == "Vendor")
+        or (title.currencyCost ~= nil)
+        or (title.itemCost ~= nil)
+        or (title.goldCost ~= nil)
+    local readyToBuy = (not isCollected)
+        and (title.obtainable ~= false)
+        and isVendorSource
+        and (totalCount > 0)
+        and (doneCount >= totalCount)
+
     local result = {
         isCollected = isCollected,
         pct = finalPct,
         doneCount = doneCount,
         totalCount = totalCount,
+        readyToBuy = readyToBuy,
         criteria = criteria,
         summaryOnly = false,
     }

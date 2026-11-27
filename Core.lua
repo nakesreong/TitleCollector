@@ -157,9 +157,20 @@ function addon:BuildTitleIndex()
         TitlesDB = LibStub("TitlesDB-1.0", true)
     end
 
+    local isHordePlayer = (UnitFactionGroup and UnitFactionGroup("player") == "Horde")
     local rawMap = (TitlesDB and TitlesDB.Titles) or {}
     for maskID, t in pairs(rawMap) do
         t.maskID = maskID
+        -- Фракционные координаты Бойцовской гильдии («Звезда арены» #61429 и «Боец»)
+        if not t.mapID and (t.achID == 61429 or t.clean_en == "Brawler") then
+            if isHordePlayer then
+                t.mapID, t.x, t.y = 85, 70.6, 30.8
+                t.zone_ru, t.zone_en = "Оргриммар (Арена Морд'Бой)", "Orgrimmar (Brawl'gar Arena)"
+            else
+                t.mapID, t.x, t.y = 84, 64.0, 30.2
+                t.zone_ru, t.zone_en = "Штормград (Потасовочная «У Бизмо»)", "Stormwind (Bizmo's Brawlpub)"
+            end
+        end
         self.TitleByMaskID[maskID] = t
         table.insert(self.Titles, t)
 
