@@ -245,6 +245,126 @@ local function GetPlayerClassColorHex()
     return "|cff00ff96"
 end
 
+local hiddenVendorWarmTT = nil
+local function WarmVendorCreatureCache(npcID)
+    if not npcID or npcID <= 0 then return end
+    if C_TooltipInfo and C_TooltipInfo.GetHyperlink then
+        pcall(C_TooltipInfo.GetHyperlink, string.format("unit:Creature-0-0-0-0-%d-0000000000", npcID))
+    end
+    if not hiddenVendorWarmTT then
+        hiddenVendorWarmTT = CreateFrame("GameTooltip", "TitleCollectorVendorWarmTT", nil, "GameTooltipTemplate")
+        hiddenVendorWarmTT:SetOwner(WorldFrame, "ANCHOR_NONE")
+    end
+    pcall(hiddenVendorWarmTT.SetHyperlink, hiddenVendorWarmTT, string.format("unit:Creature-0-0-0-0-%d", npcID))
+end
+
+local function ApplyVendorToModel(modelFrame, npcID)
+    if not modelFrame or not npcID or npcID <= 0 then return end
+    modelFrame.currentNpcID = npcID
+    modelFrame.targetRotation = 0.35
+
+    if not modelFrame.tcHookedLoaded then
+        modelFrame.tcHookedLoaded = true
+        modelFrame:HookScript("OnModelLoaded", function(selfM)
+            if selfM.SetRotation and selfM.targetRotation then
+                pcall(selfM.SetRotation, selfM, selfM.targetRotation)
+            end
+        end)
+    end
+
+    WarmVendorCreatureCache(npcID)
+    modelFrame:ClearModel()
+    pcall(modelFrame.SetCreature, modelFrame, npcID)
+    if modelFrame.SetRotation then
+        pcall(modelFrame.SetRotation, modelFrame, 0.35)
+    end
+
+    for _, delay in ipairs({ 0.15, 0.45, 0.90 }) do
+        C_Timer.After(delay, function()
+            if not modelFrame:IsShown() or modelFrame.currentNpcID ~= npcID then return end
+            local fid = modelFrame.GetModelFileID and modelFrame:GetModelFileID() or 0
+            if not fid or fid == 0 then
+                WarmVendorCreatureCache(npcID)
+                pcall(modelFrame.SetCreature, modelFrame, npcID)
+                if modelFrame.SetRotation then
+                    pcall(modelFrame.SetRotation, modelFrame, 0.35)
+                end
+            end
+        end)
+    end
+end
+
+function addon:UpdateVendorDock(title)
+    if not ui.mainFrame or not ui.vendorDock then return end
+    local dock = ui.vendorDock
+    local mainShown = ui.mainFrame:IsShown()
+    local npcID = title and title.vendorNPC
+
+    if not mainShown or not npcID or npcID <= 0 or dock.dismissedMaskID == (title and title.maskID) then
+        dock:Hide()
+        if ui.vendorTargetSecureBtn and not (InCombatLockdown and InCombatLockdown()) then
+            ui.vendorTargetSecureBtn:Hide()
+        end
+        return
+    end
+
+    local isEN = self:IsEnglish()
+    dock.hdrFS:SetText(self:L("VDOCK_HEADER"))
+    dock.rotateHintFS:SetText(self:L("VDOCK_ROTATE_HINT"))
+
+    local targetName = (not isEN and title.vendorTarget_ru and title.vendorTarget_ru ~= "" and title.vendorTarget_ru)
+        or (isEN and title.vendorTarget_en and title.vendorTarget_en ~= "" and title.vendorTarget_en)
+        or title.vendorTarget_ru or title.vendorTarget_en or "NPC"
+    local fullVendorLabel = isEN
+        and ((title.vendor_en and title.vendor_en ~= "" and title.vendor_en) or targetName)
+        or ((title.vendor_ru and title.vendor_ru ~= "" and title.vendor_ru) or targetName)
+
+    dock.nameFS:SetText("|cffffd100" .. targetName .. "|r")
+    local zName = self:GetTitleZoneName(title)
+    local coordStr = (title.x and title.y) and string.format(" (%.1f, %.1f)", title.x, title.y) or ""
+    dock.locFS:SetText("|cff00ccff" .. (zName ~= "" and (zName .. coordStr) or fullVendorLabel) .. "|r")
+
+    local evText = isEN
+        and (title.vendorEvent_en or "")
+        or (title.vendorEvent_ru or "")
+    if evText and evText ~= "" then
+        dock.eventFS:SetText("|cffffaa00" .. evText .. "|r")
+        dock.eventFS:Show()
+    else
+        dock.eventFS:SetText("")
+        dock.eventFS:Hide()
+    end
+
+    dock:Show()
+    if dock.model.currentNpcID ~= npcID or not dock.model:GetModelFileID() or dock.model:GetModelFileID() == 0 then
+        ApplyVendorToModel(dock.model, npcID)
+    end
+
+    -- Обновляем боевую кнопку /targetexact только вне боя (0 taint!)
+    local clientRu = ((GetLocale and GetLocale() or "enUS") == "ruRU")
+    local macroNpcName = clientRu
+        and (title.vendorTarget_ru or title.vendorTarget_en or targetName)
+        or (title.vendorTarget_en or title.vendorTarget_ru or targetName)
+
+    if ui.vendorTargetSecureBtn then
+        if InCombatLockdown and InCombatLockdown() then
+            ui.pendingVendorMacro = macroNpcName
+            dock.combatFallbackFS:SetText(self:L("VDOCK_BTN_TARGET_COMBAT"))
+            dock.combatFallbackFS:Show()
+        else
+            ui.pendingVendorMacro = nil
+            dock.combatFallbackFS:Hide()
+            ui.vendorTargetSecureBtn:SetAttribute("type", "macro")
+            ui.vendorTargetSecureBtn:SetAttribute("macrotext", "/targetexact " .. macroNpcName)
+            ui.vendorTargetSecureBtn.label:SetText("|TInterface\\CURSOR\\Crosshairs:13:13:0:0|t " .. self:L("VDOCK_BTN_TARGET"))
+            ui.vendorTargetSecureBtn:ClearAllPoints()
+            ui.vendorTargetSecureBtn:SetPoint("BOTTOMLEFT", dock, "BOTTOMLEFT", 10, 10)
+            ui.vendorTargetSecureBtn:SetPoint("BOTTOMRIGHT", dock, "BOTTOMRIGHT", -10, 10)
+            ui.vendorTargetSecureBtn:Show()
+        end
+    end
+end
+
 local function ResolveTitleIcon(t)
     if not t then return "Interface\\ICONS\\INV_Crown_01" end
     if t.icon then return t.icon end
@@ -619,6 +739,10 @@ function addon:RefreshInspector()
     if vName and vName ~= "" then
         table.insert(srcLines, self:L("INSP_SOURCE_VENDOR_FMT", vName))
     end
+    local vEvent = self:IsEnglish() and t.vendorEvent_en or t.vendorEvent_ru
+    if vEvent and vEvent ~= "" then
+        table.insert(srcLines, self:L("INSP_VENDOR_EVENT_FMT", vEvent))
+    end
     local costStr = FormatTitleVendorCost(self, t)
     if costStr then
         table.insert(srcLines, self:L("INSP_PRICE_FMT", costStr))
@@ -645,6 +769,8 @@ function addon:RefreshInspector()
     else
         insp.openAchBtn:Disable()
     end
+
+    self:UpdateVendorDock(t)
 end
 
 -- ============================================================================
@@ -986,7 +1112,104 @@ function addon:EnsureMainWindow()
         ui.tabButtons[td.id] = tb
         prevTab = tb
     end
-    f:HookScript("OnHide", HideCollectorDropdown)
+    f:HookScript("OnHide", function()
+        HideCollectorDropdown()
+        if ui.vendorDock then ui.vendorDock:Hide() end
+        if ui.vendorTargetSecureBtn and not (InCombatLockdown and InCombatLockdown()) then
+            ui.vendorTargetSecureBtn:Hide()
+        end
+    end)
+
+    -- Боковая левая карточка 3D-превью продавца звания (открывается автоматически для категории Торговцы)
+    local vDock = CreateFrame("Frame", nil, f, "BackdropTemplate")
+    vDock:SetSize(222, 346)
+    vDock:SetPoint("TOPRIGHT", f, "TOPLEFT", -6, 0)
+    ApplyBackdrop(vDock, 0.05, 0.05, 0.06, 0.97, 0.72, 0.58, 0.16, 1.0)
+    vDock:Hide()
+    ui.vendorDock = vDock
+
+    local vdHdr = vDock:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    vdHdr:SetPoint("TOPLEFT", vDock, "TOPLEFT", 10, -10)
+    vdHdr:SetTextColor(1.0, 0.85, 0.20, 1.0)
+    vdHdr:SetText(self:L("VDOCK_HEADER"))
+    vDock.hdrFS = vdHdr
+
+    local vdClose = CreateCollectorButton(vDock, 18, 18, "X", false)
+    vdClose:SetPoint("TOPRIGHT", vDock, "TOPRIGHT", -6, -6)
+    vdClose:SetScript("OnClick", function()
+        if ui.selectedTitle then
+            vDock.dismissedMaskID = ui.selectedTitle.maskID
+        end
+        addon:UpdateVendorDock(ui.selectedTitle)
+    end)
+
+    local vdModelBox = CreateFrame("Frame", nil, vDock, "BackdropTemplate")
+    vdModelBox:SetPoint("TOPLEFT", vDock, "TOPLEFT", 10, -30)
+    vdModelBox:SetPoint("TOPRIGHT", vDock, "TOPRIGHT", -10, -30)
+    vdModelBox:SetHeight(192)
+    ApplyBackdrop(vdModelBox, 0.03, 0.03, 0.04, 0.98, 0.30, 0.26, 0.16, 1.0)
+
+    local vdModel = CreateFrame("PlayerModel", nil, vdModelBox, "ModelWithControlsTemplate")
+    vdModel:SetPoint("TOPLEFT", vdModelBox, "TOPLEFT", 3, -3)
+    vdModel:SetPoint("BOTTOMRIGHT", vdModelBox, "BOTTOMRIGHT", -3, 3)
+    vdModel:EnableMouse(true)
+    vdModel:EnableMouseWheel(true)
+    vDock.model = vdModel
+
+    local vdRotHint = vdModelBox:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    vdRotHint:SetPoint("BOTTOMRIGHT", vdModelBox, "BOTTOMRIGHT", -6, 4)
+    vdRotHint:SetText(self:L("VDOCK_ROTATE_HINT"))
+    vDock.rotateHintFS = vdRotHint
+
+    local vdName = vDock:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    vdName:SetPoint("TOPLEFT", vdModelBox, "BOTTOMLEFT", 2, -8)
+    vdName:SetPoint("RIGHT", vDock, "RIGHT", -10, 0)
+    vdName:SetJustifyH("LEFT")
+    vdName:SetWordWrap(false)
+    vDock.nameFS = vdName
+
+    local vdLoc = vDock:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    vdLoc:SetPoint("TOPLEFT", vdName, "BOTTOMLEFT", 0, -3)
+    vdLoc:SetPoint("RIGHT", vDock, "RIGHT", -10, 0)
+    vdLoc:SetJustifyH("LEFT")
+    vdLoc:SetWordWrap(false)
+    vDock.locFS = vdLoc
+
+    local vdEvent = vDock:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    vdEvent:SetPoint("TOPLEFT", vdLoc, "BOTTOMLEFT", 0, -4)
+    vdEvent:SetPoint("RIGHT", vDock, "RIGHT", -10, 0)
+    vdEvent:SetJustifyH("LEFT")
+    vdEvent:SetWordWrap(true)
+    vDock.eventFS = vdEvent
+
+    local vdCombatFallback = vDock:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    vdCombatFallback:SetPoint("BOTTOM", vDock, "BOTTOM", 0, 16)
+    vdCombatFallback:Hide()
+    vDock.combatFallbackFS = vdCombatFallback
+
+    -- Отдельная защищённая кнопка /targetexact на UIParent (не блокирует закрытие окна по Esc в бою!)
+    if not ui.vendorTargetSecureBtn then
+        local tBtn = CreateFrame("Button", "TitleCollectorVendorTargetBtn", UIParent, "SecureActionButtonTemplate,BackdropTemplate")
+        tBtn:SetHeight(26)
+        tBtn:SetFrameStrata("DIALOG")
+        tBtn:RegisterForClicks("AnyUp", "AnyDown")
+        ApplyBackdrop(tBtn, 0.18, 0.14, 0.05, 0.96, 0.85, 0.68, 0.15, 1.0)
+        tBtn.label = tBtn:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+        tBtn.label:SetPoint("LEFT", tBtn, "LEFT", 6, 0)
+        tBtn.label:SetPoint("RIGHT", tBtn, "RIGHT", -6, 0)
+        tBtn.label:SetJustifyH("CENTER")
+        tBtn.label:SetTextColor(1.0, 0.86, 0.22, 1.0)
+        tBtn:SetScript("OnEnter", function(selfB)
+            selfB:SetBackdropColor(0.26, 0.20, 0.08, 0.98)
+            selfB:SetBackdropBorderColor(1.0, 0.84, 0.10, 1.0)
+        end)
+        tBtn:SetScript("OnLeave", function(selfB)
+            selfB:SetBackdropColor(0.18, 0.14, 0.05, 0.96)
+            selfB:SetBackdropBorderColor(0.85, 0.68, 0.15, 1.0)
+        end)
+        tBtn:Hide()
+        ui.vendorTargetSecureBtn = tBtn
+    end
 
     -- 3. Левый контейнер каталога (фильтры + список)
     local catCont = CreateFrame("Frame", nil, f, "BackdropTemplate")
@@ -1291,6 +1514,7 @@ function addon:EnsureMainWindow()
 
         row:SetScript("OnClick", function(selfRow, button)
             if not selfRow.title then return end
+            if ui.vendorDock then ui.vendorDock.dismissedMaskID = nil end
             ui.selectedTitle = selfRow.title
             ui.critScrollOffset = 0
             if button == "RightButton" and addon:IsTitleCollected(selfRow.title.maskID) then
@@ -2484,6 +2708,7 @@ eventFrame:RegisterEvent("ZONE_CHANGED_INDOORS")
 eventFrame:RegisterEvent("ZONE_CHANGED")
 eventFrame:RegisterEvent("USER_WAYPOINT_UPDATED")
 eventFrame:RegisterEvent("PLAYER_UPDATE_RESTING")
+eventFrame:RegisterEvent("PLAYER_REGEN_DISABLED")
 eventFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
 eventFrame:RegisterEvent("PLAYER_TARGET_CHANGED")
 eventFrame:RegisterEvent("UPDATE_MOUSEOVER_UNIT")
@@ -2537,7 +2762,18 @@ eventFrame:SetScript("OnEvent", function(_, event, arg1)
                 addon:RefreshUI()
             end
         end)
+    elseif event == "PLAYER_REGEN_DISABLED" then
+        if ui.vendorTargetSecureBtn then
+            ui.vendorTargetSecureBtn:Hide()
+        end
+        if ui.vendorDock and ui.vendorDock:IsShown() and ui.vendorDock.combatFallbackFS then
+            ui.vendorDock.combatFallbackFS:SetText(addon:L("VDOCK_BTN_TARGET_COMBAT"))
+            ui.vendorDock.combatFallbackFS:Show()
+        end
     elseif event == "PLAYER_REGEN_ENABLED" then
+        if ui.mainFrame and ui.mainFrame:IsShown() and ui.selectedTitle then
+            addon:UpdateVendorDock(ui.selectedTitle)
+        end
         if addon.pendingEquipMaskID ~= nil then
             local targetMask = addon.pendingEquipMaskID
             addon.pendingEquipMaskID = nil

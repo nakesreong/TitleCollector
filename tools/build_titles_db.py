@@ -68,10 +68,11 @@ CURATED_BY_TITLE = {
     },
     "of the shattered sun": {
         "cat": "Vendor", "factionID": 1077, "reqStanding": 8, "goldCost": 1000,
+        "vendorNPC": 25032, "vendorTarget_ru": "Эльдара Вестница Зари", "vendorTarget_en": "Eldara Dawnrunner",
         "vendor_ru": "Эльдара Вестница Зари (Остров Кель'Данас)", "vendor_en": "Eldara Dawnrunner (Isle of Quel'Danas)",
-        "mapID": 122, "x": 48.0, "y": 25.2, "difficulty": "SOLO_FAST",
-        "note_ru": "Достигните Превознесения с Армией Расколотого Солнца на Острове Кель'Данас и купите звание за 1000 золотых у Эльдары Вестницы Зари (Терраса Магистров проносится за 15 минут).",
-        "note_en": "Reach Exalted with Shattered Sun Offensive on Isle of Quel'Danas and purchase the title for 1,000g from Eldara Dawnrunner.",
+        "mapID": 122, "x": 47.0, "y": 30.0, "difficulty": "SOLO_FAST",
+        "note_ru": "Достигните Превознесения с Армией Расколотого Солнца на Острове Кель'Данас и купите звание за 1000 золотых у Эльдары Вестницы Зари (47.0, 30.0).",
+        "note_en": "Reach Exalted with Shattered Sun Offensive on Isle of Quel'Danas and purchase the title for 1,000g from Eldara Dawnrunner (47.0, 30.0).",
     },
     # WotLK Raid Solo Classics
     "of the nightfall": {
@@ -154,17 +155,19 @@ CURATED_BY_TITLE = {
     "barter boss": {
         "cat": "Vendor", "achID": 17841, "itemID": 204985, "itemCost": 249,
         "itemName_ru": "Валун для обмена", "itemName_en": "Barter Boulder",
+        "vendorNPC": 204693, "vendorTarget_ru": "Понзо", "vendorTarget_en": "Ponzo",
         "vendor_ru": "Понзо (Лоамм, Пещера Заралек)", "vendor_en": "Ponzo (Loamm, Zaralek Cavern)",
         "mapID": 2133, "x": 58.0, "y": 53.8, "difficulty": "SOLO_GRIND",
-        "note_ru": "Купите шляпу Понзо за 249 валунов для обмена у Понзо в Лоамме (Пещера Заралек).",
-        "note_en": "Purchase Ponzo's hat for 249 Barter Boulders from Ponzo in Loamm (Zaralek Cavern).",
+        "note_ru": "Купите шляпу Понзо за 249 валунов для обмена у Понзо в Лоамме (Пещера Заралек, 58.0, 53.8).",
+        "note_en": "Purchase Ponzo's hat for 249 Barter Boulders from Ponzo in Loamm (Zaralek Cavern, 58.0, 53.8).",
     },
     "talon's vengeance": {
         "cat": "Vendor", "factionID": 2018, "reqStanding": 8,
-        "vendor_ru": "Тринка (Крутогорье)", "vendor_en": "Trinket (Highmountain)",
-        "mapID": 650, "x": 32.2, "y": 66.8, "difficulty": "PVP",
-        "note_ru": "Достигните Превознесения с фракцией «Коготь Мщения» и заберите жетон звания у Тринки в Крутогорье (32.2, 66.8).",
-        "note_en": "Reach Exalted with Talon's Vengeance and claim the title from Trinket in Highmountain (32.2, 66.8).",
+        "vendorNPC": 112398, "vendorTarget_ru": "Сувенир", "vendorTarget_en": "Trinket",
+        "vendor_ru": "Сувенир (Крутогорье)", "vendor_en": "Trinket (Highmountain)",
+        "mapID": 650, "x": 46.4, "y": 63.8, "difficulty": "PVP",
+        "note_ru": "Достигните Превознесения с фракцией «Отмщение Когтя» и заберите жетон звания у ворона Сувенира у подножия статуи Авианы в Крутогорье (46.4, 63.8).",
+        "note_en": "Reach Exalted with Talon's Vengeance and claim the title from Trinket at Sylvan Falls in Highmountain (46.4, 63.8).",
     },
     "the fashionable": {
         "cat": "Vendor", "itemID": 151134, "itemCost": 100,
@@ -763,14 +766,24 @@ def main():
         item_name_ru = curated.get("itemName_ru") or ""
         item_name_en = curated.get("itemName_en") or ""
         gold_cost = curated.get("goldCost")
+        vendor_npc = curated.get("vendorNPC")
+        vendor_target_ru = curated.get("vendorTarget_ru") or ""
+        vendor_target_en = curated.get("vendorTarget_en") or ""
+        vendor_event_ru = curated.get("vendorEvent_ru") or ""
+        vendor_event_en = curated.get("vendorEvent_en") or ""
         vendor_ru = curated.get("vendor_ru") or ""
         vendor_en = curated.get("vendor_en") or ""
 
         if dfa_source_type == "currency" and dfa_currency and "timewarped" in dfa_currency.lower():
             currency_id = currency_id or 1166
             currency_cost = currency_cost or 100
-            vendor_ru = vendor_ru or "Нотариус Грабли (Пещеры Времени, Танарис)"
-            vendor_en = vendor_en or "Notary Grably (Caverns of Time, Tanaris)"
+            vendor_npc = vendor_npc or 231352
+            vendor_target_ru = vendor_target_ru or "Нотариус Грабли"
+            vendor_target_en = vendor_target_en or "Notary Grably"
+            vendor_event_ru = vendor_event_ru or "Только во время события «Годовщина WoW»!"
+            vendor_event_en = vendor_event_en or "WoW Anniversary Event Only!"
+            vendor_ru = vendor_ru or "Нотариус Грабли <Старинные звания> (Танарис)"
+            vendor_en = vendor_en or "Notary Grably <Titles of Olde> (Tanaris)"
 
         # Determine Category (`cat` / `kind`)
         if curated.get("cat"):
@@ -810,8 +823,8 @@ def main():
                     note_ru = note_ru or f"Достигните Превознесения у фракции «{fac_ru_label}»."
             elif dfa_source_type == "currency" and dfa_currency:
                 if "timewarped" in dfa_currency.lower():
-                    note_en = note_en or "Purchased for 100 Timewarped Badges from Notary Grably at the Caverns of Time in Tanaris (62.6, 50.2) during Timewalking / Anniversary events."
-                    note_ru = note_ru or "Приобретается за 100 Искаженных временем знаков у Нотариуса Грабли у Пещер Времени (Танарис, 62.6, 50.2) во время событий Путешествий во времени / Годовщины."
+                    note_en = note_en or "Purchased for 100 Timewarped Badges from Notary Grably outside the Caverns of Time in Tanaris (63.3, 50.6) ONLY during the WoW Anniversary event."
+                    note_ru = note_ru or "Приобретается за 100 Искаженных временем знаков у гоблинши Нотариуса Грабли у Пещер Времени (Танарис, 63.3, 50.6) ТОЛЬКО во время празднования Годовщины WoW!"
                 else:
                     note_en = note_en or f"Purchased with currency: {dfa_currency}."
                     note_ru = note_ru or f"Приобретается за валюту: {dfa_currency}."
@@ -856,7 +869,7 @@ def main():
         coord_y = curated.get("y")
 
         if not map_id and currency_id == 1166:
-            map_id, coord_x, coord_y = 71, 62.6, 50.2
+            map_id, coord_x, coord_y = 71, 63.3, 50.6
 
         if not map_id and faction_id and faction_id in FACTION_COORDS and not curated.get("noZone"):
             map_id, coord_x, coord_y = FACTION_COORDS[faction_id]
@@ -945,6 +958,11 @@ def main():
             "itemName_ru": item_name_ru,
             "itemName_en": item_name_en,
             "goldCost": gold_cost,
+            "vendorNPC": vendor_npc,
+            "vendorTarget_ru": vendor_target_ru,
+            "vendorTarget_en": vendor_target_en,
+            "vendorEvent_ru": vendor_event_ru,
+            "vendorEvent_en": vendor_event_en,
             "vendor_ru": vendor_ru,
             "vendor_en": vendor_en,
             "mapID": map_id,
@@ -1037,6 +1055,16 @@ def main():
             parts.append(f"itemName_en={lua_str(r['itemName_en'])}")
         if r["goldCost"]:
             parts.append(f"goldCost={r['goldCost']}")
+        if r["vendorNPC"]:
+            parts.append(f"vendorNPC={r['vendorNPC']}")
+        if r["vendorTarget_ru"]:
+            parts.append(f"vendorTarget_ru={lua_str(r['vendorTarget_ru'])}")
+        if r["vendorTarget_en"]:
+            parts.append(f"vendorTarget_en={lua_str(r['vendorTarget_en'])}")
+        if r["vendorEvent_ru"]:
+            parts.append(f"vendorEvent_ru={lua_str(r['vendorEvent_ru'])}")
+        if r["vendorEvent_en"]:
+            parts.append(f"vendorEvent_en={lua_str(r['vendorEvent_en'])}")
         if r["vendor_ru"]:
             parts.append(f"vendor_ru={lua_str(r['vendor_ru'])}")
         if r["vendor_en"]:
