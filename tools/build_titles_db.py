@@ -778,11 +778,11 @@ def main():
             currency_id = currency_id or 1166
             currency_cost = currency_cost or 100
             vendor_npc = vendor_npc or 231352
-            vendor_target_ru = vendor_target_ru or "Нотариус Грабли"
+            vendor_target_ru = vendor_target_ru or "Нотариус Грабль"
             vendor_target_en = vendor_target_en or "Notary Grably"
-            vendor_event_ru = vendor_event_ru or "Только во время события «Годовщина WoW»!"
-            vendor_event_en = vendor_event_en or "WoW Anniversary Event Only!"
-            vendor_ru = vendor_ru or "Нотариус Грабли <Старинные звания> (Танарис)"
+            vendor_event_ru = vendor_event_ru or "Павильон Годовщины WoW (у почтового ящика справа)"
+            vendor_event_en = vendor_event_en or "WoW Anniversary Pavilion (by the east mailbox)"
+            vendor_ru = vendor_ru or "Нотариус Грабль <Старинные звания> (Танарис)"
             vendor_en = vendor_en or "Notary Grably <Titles of Olde> (Tanaris)"
 
         # Determine Category (`cat` / `kind`)
@@ -823,8 +823,8 @@ def main():
                     note_ru = note_ru or f"Достигните Превознесения у фракции «{fac_ru_label}»."
             elif dfa_source_type == "currency" and dfa_currency:
                 if "timewarped" in dfa_currency.lower():
-                    note_en = note_en or "Purchased for 100 Timewarped Badges from Notary Grably outside the Caverns of Time in Tanaris (63.3, 50.6) ONLY during the WoW Anniversary event."
-                    note_ru = note_ru or "Приобретается за 100 Искаженных временем знаков у гоблинши Нотариуса Грабли у Пещер Времени (Танарис, 63.3, 50.6) ТОЛЬКО во время празднования Годовщины WoW!"
+                    note_en = note_en or "Purchased for 100 Timewarped Badges from Notary Grably at the WoW Anniversary Pavilion in Tanaris (63.2, 50.6 — across from the mailbox on the right side of the main pavilion)."
+                    note_ru = note_ru or "Приобретается за 100 Искаженных временем знаков у гоблина Нотариуса Грабля в павильоне Годовщины WoW (Танарис, 63.2, 50.6 — справа у почтового ящика главного шатра)."
                 else:
                     note_en = note_en or f"Purchased with currency: {dfa_currency}."
                     note_ru = note_ru or f"Приобретается за валюту: {dfa_currency}."
@@ -869,7 +869,7 @@ def main():
         coord_y = curated.get("y")
 
         if not map_id and currency_id == 1166:
-            map_id, coord_x, coord_y = 71, 63.3, 50.6
+            map_id, coord_x, coord_y = 71, 63.2, 50.6
 
         if not map_id and faction_id and faction_id in FACTION_COORDS and not curated.get("noZone"):
             map_id, coord_x, coord_y = FACTION_COORDS[faction_id]
