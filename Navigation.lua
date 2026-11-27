@@ -713,7 +713,14 @@ function addon:OnUserWaypointUpdated()
         local route = self.activePortalRoute
         if ok and wp and route and route.activePinMapID then
             local pos = wp.position
-            local wx, wy = pos and pos:GetXY()
+            local wx, wy = nil, nil
+            if pos then
+                if type(pos.GetXY) == "function" then
+                    wx, wy = pos:GetXY()
+                else
+                    wx, wy = pos.x, pos.y
+                end
+            end
             if wp.uiMapID ~= route.activePinMapID
                 or (wx and route.activePinX and math.abs(wx - route.activePinX) > 0.005)
                 or (wy and route.activePinY and math.abs(wy - route.activePinY) > 0.005)
