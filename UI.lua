@@ -246,19 +246,82 @@ local function GetPlayerClassColorHex()
 end
 
 local hiddenVendorWarmTT = nil
+local liveVendorNameCache = {}
+
 local function WarmVendorCreatureCache(npcID)
-    if not npcID or npcID <= 0 then return end
+    if not npcID or npcID <= 0 then return nil end
     if C_TooltipInfo and C_TooltipInfo.GetHyperlink then
-        pcall(C_TooltipInfo.GetHyperlink, string.format("unit:Creature-0-0-0-0-%d-0000000000", npcID))
+        local ok, data = pcall(C_TooltipInfo.GetHyperlink, string.format("unit:Creature-0-0-0-0-%d-0000000000", npcID))
+        if ok and data and type(data.lines) == "table" and data.lines[1] then
+            local ltxt = data.lines[1].leftText
+            if addon.SafeNotSecret(ltxt) and type(ltxt) == "string" and ltxt ~= "" and not string.find(ltxt, "^Creature") then
+                liveVendorNameCache[npcID] = strtrim(ltxt)
+            end
+        end
     end
     if not hiddenVendorWarmTT then
         hiddenVendorWarmTT = CreateFrame("GameTooltip", "TitleCollectorVendorWarmTT", nil, "GameTooltipTemplate")
         hiddenVendorWarmTT:SetOwner(WorldFrame, "ANCHOR_NONE")
     end
     pcall(hiddenVendorWarmTT.SetHyperlink, hiddenVendorWarmTT, string.format("unit:Creature-0-0-0-0-%d", npcID))
+    return liveVendorNameCache[npcID]
 end
 
-local function ApplyVendorToModel(modelFrame, npcID)
+local function BuildVendorTargetMacro(npcID, fallbackName)
+    local liveName = (npcID and liveVendorNameCache[npcID]) or WarmVendorCreatureCache(npcID)
+    local fullName = (liveName and liveName ~= "" and liveName) or fallbackName or ""
+    fullName = strtrim(string.gsub(fullName, "%s*<.*$", ""))
+    if fullName == "" then return "", "" end
+
+    local lines = {}
+    local seen = {}
+    local function addCmd(cmd)
+        if cmd and cmd ~= "" and not seen[cmd] then
+            seen[cmd] = true
+            table.insert(lines, cmd)
+        end
+    end
+
+    -- 1. Сначала берём по первому слову имени (например /target Нотариус), чтобы ловить любые склонения/переводы
+    local firstWord, secondWord = strsplit(" ", fullName)
+    if firstWord and #firstWord >= 3 then
+        addCmd("/target " .. firstWord)
+    end
+    if secondWord and #secondWord >= 4 then
+        addCmd("/target " .. secondWord)
+    end
+    -- 2. Затем уточняем полным именем (из живого кэша клиента + fallback из базы)
+    addCmd("/target " .. fullName)
+    addCmd("/targetexact " .. fullName)
+
+    if fallbackName and fallbackName ~= "" and fallbackName ~= fullName then
+        local fbFirst = strsplit(" ", fallbackName)
+        if fbFirst and #fbFirst >= 3 then
+            addCmd("/target " .. fbFirst)
+        end
+        addCmd("/target " .. fallbackName)
+    end
+
+    return table.concat(lines, "\n"), fullName
+end
+
+local function SyncVendorSecureOverlay()
+    if InCombatLockdown and InCombatLockdown() then return end
+    local sBtn = ui.vendorTargetSecureBtn
+    local dock = ui.vendorDock
+    if not sBtn then return end
+    if not dock or not dock:IsShown() or not dock.targetVisBtn or not dock.targetVisBtn:IsShown() then
+        sBtn:Hide()
+        return
+    end
+    sBtn:SetFrameStrata("DIALOG")
+    sBtn:SetFrameLevel((dock.targetVisBtn:GetFrameLevel() or 20) + 10)
+    sBtn:ClearAllPoints()
+    sBtn:SetAllPoints(dock.targetVisBtn)
+    sBtn:Show()
+end
+
+local function ApplyVendorToModel(modelFrame, npcID, titleRef)
     if not modelFrame or not npcID or npcID <= 0 then return end
     modelFrame.currentNpcID = npcID
     modelFrame.targetRotation = 0.35
@@ -281,10 +344,14 @@ local function ApplyVendorToModel(modelFrame, npcID)
 
     for _, delay in ipairs({ 0.15, 0.45, 0.90 }) do
         C_Timer.After(delay, function()
+            local prevLive = liveVendorNameCache[npcID]
+            local newLive = WarmVendorCreatureCache(npcID)
+            if newLive and newLive ~= prevLive and ui.selectedTitle == titleRef and ui.vendorDock and ui.vendorDock:IsShown() then
+                addon:UpdateVendorDock(titleRef)
+            end
             if not modelFrame:IsShown() or modelFrame.currentNpcID ~= npcID then return end
             local fid = modelFrame.GetModelFileID and modelFrame:GetModelFileID() or 0
             if not fid or fid == 0 then
-                WarmVendorCreatureCache(npcID)
                 pcall(modelFrame.SetCreature, modelFrame, npcID)
                 if modelFrame.SetRotation then
                     pcall(modelFrame.SetRotation, modelFrame, 0.35)
@@ -309,12 +376,17 @@ function addon:UpdateVendorDock(title)
     end
 
     local isEN = self:IsEnglish()
+    local clientRu = ((GetLocale and GetLocale() or "enUS") == "ruRU")
+    local liveClientName = WarmVendorCreatureCache(npcID)
+
     dock.hdrFS:SetText(self:L("VDOCK_HEADER"))
     dock.rotateHintFS:SetText(self:L("VDOCK_ROTATE_HINT"))
 
-    local targetName = (not isEN and title.vendorTarget_ru and title.vendorTarget_ru ~= "" and title.vendorTarget_ru)
+    local targetName = (not isEN and clientRu and liveClientName)
+        or (isEN and not clientRu and liveClientName)
+        or (not isEN and title.vendorTarget_ru and title.vendorTarget_ru ~= "" and title.vendorTarget_ru)
         or (isEN and title.vendorTarget_en and title.vendorTarget_en ~= "" and title.vendorTarget_en)
-        or title.vendorTarget_ru or title.vendorTarget_en or "NPC"
+        or liveClientName or title.vendorTarget_ru or title.vendorTarget_en or "NPC"
     local fullVendorLabel = isEN
         and ((title.vendor_en and title.vendor_en ~= "" and title.vendor_en) or targetName)
         or ((title.vendor_ru and title.vendor_ru ~= "" and title.vendor_ru) or targetName)
@@ -337,30 +409,33 @@ function addon:UpdateVendorDock(title)
 
     dock:Show()
     if dock.model.currentNpcID ~= npcID or not dock.model:GetModelFileID() or dock.model:GetModelFileID() == 0 then
-        ApplyVendorToModel(dock.model, npcID)
+        ApplyVendorToModel(dock.model, npcID, title)
     end
 
-    -- Обновляем боевую кнопку /targetexact только вне боя (0 taint!)
-    local clientRu = ((GetLocale and GetLocale() or "enUS") == "ruRU")
-    local macroNpcName = clientRu
+    local fallbackMacroName = clientRu
         and (title.vendorTarget_ru or title.vendorTarget_en or targetName)
         or (title.vendorTarget_en or title.vendorTarget_ru or targetName)
+    local macroText, resolvedTargetName = BuildVendorTargetMacro(npcID, fallbackMacroName)
+    dock.expectedNpcID = npcID
+    dock.expectedNpcName = resolvedTargetName ~= "" and resolvedTargetName or targetName
+
+    if dock.targetVisBtn then
+        dock.targetVisBtn:SetText("|TInterface\\CURSOR\\Crosshairs:13:13:0:0|t " .. self:L("VDOCK_BTN_TARGET"))
+    end
 
     if ui.vendorTargetSecureBtn then
         if InCombatLockdown and InCombatLockdown() then
-            ui.pendingVendorMacro = macroNpcName
+            dock.targetVisBtn:Hide()
             dock.combatFallbackFS:SetText(self:L("VDOCK_BTN_TARGET_COMBAT"))
             dock.combatFallbackFS:Show()
         else
-            ui.pendingVendorMacro = nil
             dock.combatFallbackFS:Hide()
+            dock.targetVisBtn:Show()
             ui.vendorTargetSecureBtn:SetAttribute("type", "macro")
-            ui.vendorTargetSecureBtn:SetAttribute("macrotext", "/targetexact " .. macroNpcName)
-            ui.vendorTargetSecureBtn.label:SetText("|TInterface\\CURSOR\\Crosshairs:13:13:0:0|t " .. self:L("VDOCK_BTN_TARGET"))
-            ui.vendorTargetSecureBtn:ClearAllPoints()
-            ui.vendorTargetSecureBtn:SetPoint("BOTTOMLEFT", dock, "BOTTOMLEFT", 10, 10)
-            ui.vendorTargetSecureBtn:SetPoint("BOTTOMRIGHT", dock, "BOTTOMRIGHT", -10, 10)
-            ui.vendorTargetSecureBtn:Show()
+            ui.vendorTargetSecureBtn:SetAttribute("type1", "macro")
+            ui.vendorTargetSecureBtn:SetAttribute("macrotext", macroText)
+            ui.vendorTargetSecureBtn:SetAttribute("macrotext1", macroText)
+            SyncVendorSecureOverlay()
         end
     end
 end
@@ -1182,30 +1257,67 @@ function addon:EnsureMainWindow()
     vdEvent:SetWordWrap(true)
     vDock.eventFS = vdEvent
 
+    local vdTargetVis = CreateCollectorButton(vDock, 202, 26, "|TInterface\\CURSOR\\Crosshairs:13:13:0:0|t " .. self:L("VDOCK_BTN_TARGET"), true)
+    vdTargetVis:SetPoint("BOTTOMLEFT", vDock, "BOTTOMLEFT", 10, 10)
+    vdTargetVis:SetPoint("BOTTOMRIGHT", vDock, "BOTTOMRIGHT", -10, 10)
+    vDock.targetVisBtn = vdTargetVis
+
     local vdCombatFallback = vDock:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     vdCombatFallback:SetPoint("BOTTOM", vDock, "BOTTOM", 0, 16)
     vdCombatFallback:Hide()
     vDock.combatFallbackFS = vdCombatFallback
 
-    -- Отдельная защищённая кнопка /targetexact на UIParent (не блокирует закрытие окна по Esc в бою!)
+    -- ВАЖНО: чистый SecureActionButtonTemplate БЕЗ BackdropTemplate (чтобы BackdropMixin не затирал SecureActionButton_OnLoad!)
     if not ui.vendorTargetSecureBtn then
-        local tBtn = CreateFrame("Button", "TitleCollectorVendorTargetBtn", UIParent, "SecureActionButtonTemplate,BackdropTemplate")
-        tBtn:SetHeight(26)
+        local tBtn = CreateFrame("Button", "TitleCollectorVendorTargetBtn", UIParent, "SecureActionButtonTemplate")
+        tBtn:SetSize(202, 26)
         tBtn:SetFrameStrata("DIALOG")
         tBtn:RegisterForClicks("AnyUp", "AnyDown")
-        ApplyBackdrop(tBtn, 0.18, 0.14, 0.05, 0.96, 0.85, 0.68, 0.15, 1.0)
-        tBtn.label = tBtn:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-        tBtn.label:SetPoint("LEFT", tBtn, "LEFT", 6, 0)
-        tBtn.label:SetPoint("RIGHT", tBtn, "RIGHT", -6, 0)
-        tBtn.label:SetJustifyH("CENTER")
-        tBtn.label:SetTextColor(1.0, 0.86, 0.22, 1.0)
-        tBtn:SetScript("OnEnter", function(selfB)
-            selfB:SetBackdropColor(0.26, 0.20, 0.08, 0.98)
-            selfB:SetBackdropBorderColor(1.0, 0.84, 0.10, 1.0)
+        tBtn:SetScript("OnEnter", function()
+            if vDock.targetVisBtn then
+                vDock.targetVisBtn:SetBackdropColor(0.26, 0.20, 0.08, 0.98)
+                vDock.targetVisBtn:SetBackdropBorderColor(1.0, 0.84, 0.10, 1.0)
+                vDock.targetVisBtn.label:SetTextColor(1.0, 0.92, 0.40, 1.0)
+            end
         end)
-        tBtn:SetScript("OnLeave", function(selfB)
-            selfB:SetBackdropColor(0.18, 0.14, 0.05, 0.96)
-            selfB:SetBackdropBorderColor(0.85, 0.68, 0.15, 1.0)
+        tBtn:SetScript("OnLeave", function()
+            if vDock.targetVisBtn then
+                vDock.targetVisBtn:SetBackdropColor(0.18, 0.14, 0.05, 0.96)
+                vDock.targetVisBtn:SetBackdropBorderColor(0.85, 0.68, 0.15, 1.0)
+                vDock.targetVisBtn.label:SetTextColor(1.0, 0.86, 0.22, 1.0)
+            end
+        end)
+        tBtn:HookScript("PostClick", function(_, _, down)
+            local useKeyDown = C_CVar and C_CVar.GetCVarBool and C_CVar.GetCVarBool("ActionButtonUseKeyDown")
+            if (down and not useKeyDown) or (not down and useKeyDown) then return end
+            local wantNpcID = vDock.expectedNpcID
+            local wantName = vDock.expectedNpcName or "NPC"
+            local matched = false
+            if UnitExists and UnitExists("target") then
+                local guid = UnitGUID and UnitGUID("target")
+                if addon.SafeNotSecret(guid) and type(guid) == "string" then
+                    local _, _, _, _, _, idStr = strsplit("-", guid)
+                    if tonumber(idStr) == wantNpcID then
+                        matched = true
+                    end
+                end
+                local tName = UnitName and UnitName("target")
+                if not matched and addon.SafeNotSecret(tName) and type(tName) == "string" then
+                    local fw = strsplit(" ", wantName)
+                    if fw and #fw >= 3 and string.find(string.lower(tName), string.lower(fw), 1, true) then
+                        matched = true
+                    end
+                end
+            end
+            if matched then
+                local actualName = (UnitName and UnitName("target")) or wantName
+                if addon.SafeNotSecret(actualName) then
+                    print(addon:L("VDOCK_CHAT_TARGETED_FMT", tostring(actualName)))
+                end
+                if PlaySound then pcall(PlaySound, 856, "Master") end
+            else
+                print(addon:L("VDOCK_CHAT_NOT_FOUND_FMT", wantName))
+            end
         end)
         tBtn:Hide()
         ui.vendorTargetSecureBtn = tBtn
@@ -2013,6 +2125,9 @@ function addon:ApplyLocaleToStaticUI()
         if insp.waypointBtn then insp.waypointBtn:SetText(self:L("INSP_BTN_WAYPOINT")) end
         if insp.openAchBtn then insp.openAchBtn:SetText(self:L("INSP_BTN_OPEN_ACH")) end
         if insp.whBtn then insp.whBtn:SetText(self:L("INSP_BTN_WOWHEAD")) end
+    end
+    if self.portalCompassFrame and self.portalCompassFrame:IsShown() and self.portalCompassFrame.hdrFS then
+        self.portalCompassFrame.hdrFS:SetText("|T135744:12:12:0:0|t " .. self:L("PORTAL_COMPASS_HDR"))
     end
 end
 

@@ -358,6 +358,34 @@ COVENANT_LABELS_RU = {
     "Venthyr Covenant": "Ковенант Вентиров",
 }
 
+DFA_DROP_TRANSLATIONS_RU = {
+    "Rated PvP": "Награда рейтингового PvP.",
+    "Delegation": "Награда за цепочку легендарного посоха «Гнев Дракона, вечный покой Таресгосы» (Огненные Просторы).",
+    "Maloriak": "Особое временное звание за победу над Малориаком в Твердыне Крыла Тьмы.",
+    "The Secrets of Ragefire": "Награда сценария Пандарии «Секреты Огненной Пропасти».",
+    "Xaril the Poisoned Mind": "Особое звание за поглощение силы Идеалов клакси в рейде «Осада Оргриммара».",
+    "Ka'roz the Locust": "Особое звание за поглощение силы Идеалов клакси в рейде «Осада Оргриммара».",
+    "Hisek the Swarmkeeper": "Особое звание за поглощение силы Идеалов клакси в рейде «Осада Оргриммара».",
+    "Korven the Prime": "Особое звание за поглощение силы Идеалов клакси в рейде «Осада Оргриммара».",
+    "Kaz'tik the Manipulator": "Особое звание за поглощение силы Идеалов клакси в рейде «Осада Оргриммара».",
+    "Rik'kal the Dissector": "Особое звание за поглощение силы Идеалов клакси в рейде «Осада Оргриммара».",
+    "Iyyokuk the Lucid": "Особое звание за поглощение силы Идеалов клакси в рейде «Осада Оргриммара».",
+    "Kil'ruk the Wind-Reaver": "Особое звание за поглощение силы Идеалов клакси в рейде «Осада Оргриммара».",
+    "Trashmaster's Mantle": "Обменяйте плащ «Мантия главного мусорщика» из Операции «Мехагон» у Джейни Свалкинс в Зулдазаре.",
+    "World of Warcraft Championship 2016/2017": "Награда чемпионата арены World of Warcraft (2016/2017).",
+    "Demon Hunter": "Выдается автоматически при создании персонажа класса Охотник на демонов.",
+    "Elya Azuremoon": "Завершите цепочку заданий академии Нар'таласа в Азсуне (Элия Лазурная Луна).",
+    "Vixx the Collector": "Добывается из сундука Викса Коллекционера в Престоле Триумвирата.",
+    "Adventurer's Society Loot Stash": "Добывается из тайника Общества искателей приключений в Друстваре.",
+    "The Horde Slayer": "Выполните задание режима войны «Убийца Орды» (10 побед над игроками Орды подряд без смертей).",
+    "The Alliance Slayer": "Выполните задание режима войны «Убийца Альянса» (10 побед над игроками Альянса подряд без смертей).",
+    "Free T-Shirt": "Праздник бесплатных футболок: подберите подарочную футболку в столице.",
+    "Recruit-a-Friend": "Награда программы «Пригласи друга».",
+    "Pet Battle Challenge: Blackrock Depths": "Подземелье битв питомцев: Глубины Черной горы (Таша Райли).",
+    "Delves": "Награда сезонного прогресса Вылазок.",
+    "Darkspear Dash": "Награда праздничного события «Забег Черного Копья».",
+}
+
 
 def ensure_cache(force_fetch: bool = False):
     os.makedirs(CACHE_DIR, exist_ok=True)
@@ -837,19 +865,24 @@ def main():
                     note_ru = note_ru or f"Награда за выполнение задания #{dfa_quest_id}."
                 elif dfa_drop_name:
                     note_en = note_en or f"Reward from quest: {dfa_drop_name}."
-                    note_ru = note_ru or f"Награда за задание «{dfa_drop_name}»."
+                    ru_ov = next((v for k, v in DFA_DROP_TRANSLATIONS_RU.items() if k.lower() in dfa_drop_name.lower()), None)
+                    note_ru = note_ru or ru_ov or f"Награда за задание «{dfa_drop_name}»."
             elif dfa_source_type == "drop" and dfa_drop_name:
                 note_en = note_en or f"Granted by defeating or looting: {dfa_drop_name}."
-                note_ru = note_ru or f"Добывается или дается за победу: {dfa_drop_name}."
+                ru_ov = next((v for k, v in DFA_DROP_TRANSLATIONS_RU.items() if k.lower() in dfa_drop_name.lower()), None)
+                note_ru = note_ru or ru_ov or f"Добывается или дается за победу: {dfa_drop_name}."
             elif dfa_source_type == "vendor" and dfa_drop_name:
                 note_en = note_en or f"Purchased from vendor: {dfa_drop_name}."
-                note_ru = note_ru or f"Приобретается у торговца: {dfa_drop_name}."
+                ru_ov = next((v for k, v in DFA_DROP_TRANSLATIONS_RU.items() if k.lower() in dfa_drop_name.lower()), None)
+                note_ru = note_ru or ru_ov or f"Приобретается у торговца: {dfa_drop_name}."
             elif dfa_source_type == "promotion" and dfa_drop_name:
                 note_en = note_en or f"Special promotion reward: {dfa_drop_name}."
-                note_ru = note_ru or f"Награда специальной акции: {dfa_drop_name}."
+                ru_ov = next((v for k, v in DFA_DROP_TRANSLATIONS_RU.items() if k.lower() in dfa_drop_name.lower()), None)
+                note_ru = note_ru or ru_ov or f"Награда специальной акции: {dfa_drop_name}."
             elif dfa_drop_name:
                 note_en = note_en or f"Source: {dfa_drop_name}."
-                note_ru = note_ru or f"Источник: {dfa_drop_name}."
+                ru_ov = next((v for k, v in DFA_DROP_TRANSLATIONS_RU.items() if k.lower() in dfa_drop_name.lower()), None)
+                note_ru = note_ru or ru_ov or f"Источник: {dfa_drop_name}."
 
         if not obtainable:
             if note_en and "no longer obtainable" not in note_en.lower():

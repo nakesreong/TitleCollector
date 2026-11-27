@@ -347,7 +347,7 @@ end
 
 function addon:FormatTitleWithPlayerName(title, playerName, useFemale)
     if not title then return playerName or "" end
-    playerName = playerName or UnitName("player") or "Герой"
+    playerName = playerName or UnitName("player") or (self:IsEnglish() and "Hero" or "Герой")
     if useFemale == nil then
         useFemale = self:IsPlayerFemale()
     end

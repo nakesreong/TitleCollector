@@ -105,6 +105,8 @@ local Locales = {
         VDOCK_ROTATE_HINT = "ЛКМ: вращать",
         VDOCK_BTN_TARGET = "Взять продавца в цель",
         VDOCK_BTN_TARGET_COMBAT = "Недоступно в бою",
+        VDOCK_CHAT_TARGETED_FMT = "|cffffd100[TitleCollector]|r Взята цель: |cff00ff96%s|r",
+        VDOCK_CHAT_NOT_FOUND_FMT = "|cffffd100[TitleCollector]|r Продавец |cffffaa00%s|r не найден рядом (подойдите ближе ~40 м к точке или проверьте фазу события).",
         PORTAL_COMPASS_HDR = "НАВИГАТОР ЗАЛА ПОРТАЛОВ",
         PORTAL_DIST_YARDS_FMT = "%d м",
 
@@ -262,6 +264,8 @@ local Locales = {
         VDOCK_ROTATE_HINT = "Drag to rotate",
         VDOCK_BTN_TARGET = "Target Vendor",
         VDOCK_BTN_TARGET_COMBAT = "Unavailable in combat",
+        VDOCK_CHAT_TARGETED_FMT = "|cffffd100[TitleCollector]|r Targeted vendor: |cff00ff96%s|r",
+        VDOCK_CHAT_NOT_FOUND_FMT = "|cffffd100[TitleCollector]|r Vendor |cffffaa00%s|r is not in range yet (move within ~40 yds of the pin or check event phasing).",
         PORTAL_COMPASS_HDR = "PORTAL ROOM NAVIGATOR",
         PORTAL_DIST_YARDS_FMT = "%d yds",
 
